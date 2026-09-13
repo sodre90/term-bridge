@@ -44,6 +44,15 @@ every section after it itemizes changes individually. Purely internal refactors
   that was a gap from the start, only worth closing once a multi-megabyte
   frame became a legitimate thing to send. A message over the limit ends
   the socket like a decrypt failure does. (cmux-app-ej0)
+- The bridge can create a workspace (`POST /sessions`, directory under
+  `$HOME`), split the viewed pane or add a tab to it
+  (`POST /sessions/{id}/panes`), report where a workspace's panes sit
+  (`GET /sessions/{id}/layout`), show a workspace and surface on the Mac
+  (`POST /sessions/{id}/select`), and close a surface or a workspace
+  (`DELETE`). This lifts the never-create/close rule by owner decision; see
+  `docs/superpowers/specs/2026-09-12-workspace-layout-control-design.md`.
+  Every call names its target by UUID and nothing created takes focus on
+  the Mac. The phone side follows in later commits. (cmux-app-9ll)
 
 ### Compatibility
 
@@ -54,6 +63,10 @@ the bridge does not recognise and, as with any unknown frame type, drops
 without acking; the app shows the photo as delayed and never reports an
 outcome. Update the bridge first. The attachment directory is created on
 first use; no config, pairing or permission change.
+
+Six new HTTP routes for workspace and pane control. An old app never calls
+them; a new app against an old bridge gets 404s and says the bridge is too
+old. No new config.
 
 ### Changed
 

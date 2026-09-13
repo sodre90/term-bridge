@@ -38,9 +38,11 @@ single sitting), **M** (half-day-ish), **L** (multi-day / needs a design pass).
 Violating any of these is a rejected change, regardless of how nice the diff is.
 
 1. **cmux is a black box.** Talk to it only via the documented CLI
-   (`cmux rpc` / `cmux events`). Never copy cmux source. Never add
-   create/close/restore-workspace capabilities to the bridge — it is
-   deliberately limited to reads, terminal I/O, feed replies, and rename.
+   (`cmux rpc` / `cmux events`). Never copy cmux source. Workspace and pane
+   creation, selection and closing arrived 2026-09-12 (see
+   `docs/superpowers/specs/2026-09-12-workspace-layout-control-design.md`);
+   every such call names its target by UUID and never takes focus on the
+   Mac unless the phone asked for it.
 2. **`internal/relay/multitenant_test.go` must always pass.** It is the
    enforcement of the tenant-isolation security model, not just a test.
 3. **Wire-format lockstep.** The app↔bridge protocol is hand-mirrored between
@@ -432,7 +434,9 @@ Investigated and rejected (see `docs/enhancement-audit-validation.md`):
   own cols/rows and the bridge forwards them to cmux
   (`mobile.terminal.viewport`); any remaining sizing weirdness lives in the
   cmux backend's arbitration, outside this repo. Verify live before touching.
-- Adding cmux workspace create/close/restore. Never.
+- Restoring workspaces from the phone: cmux has only
+  `session.restore_previous` (the whole app session), nothing per
+  workspace. Create/select/close are in as of 2026-09-12; restore stays out.
 
 ## 10. Known parked issues (context, not tasks)
 

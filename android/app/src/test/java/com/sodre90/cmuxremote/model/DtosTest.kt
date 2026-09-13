@@ -90,6 +90,63 @@ class DtosTest {
     }
 
     @Test
+    fun encodesACreateWorkspaceRequestOmittingAnAbsentTitle() {
+        val withTitle = CreateWorkspaceRequest(cwd = "/Users/me/prj/thing", title = "Thing")
+        assertEquals(
+            """{"cwd":"/Users/me/prj/thing","title":"Thing"}""",
+            BridgeJson.encodeToString(CreateWorkspaceRequest.serializer(), withTitle),
+        )
+        val bare = CreateWorkspaceRequest(cwd = "/Users/me")
+        assertEquals("""{"cwd":"/Users/me"}""", BridgeJson.encodeToString(CreateWorkspaceRequest.serializer(), bare))
+    }
+
+    @Test
+    fun encodesAPaneRequestAndASelectWithTheBridgesFieldNames() {
+        val pane = CreatePaneRequest(surfaceId = "2620FAA3-A6AE-41AD-8C6A-4A4ED139D622", placement = PanePlacement.DOWN)
+        assertEquals(
+            """{"surface_id":"2620FAA3-A6AE-41AD-8C6A-4A4ED139D622","placement":"down"}""",
+            BridgeJson.encodeToString(CreatePaneRequest.serializer(), pane),
+        )
+        assertEquals("{}", BridgeJson.encodeToString(SelectWorkspaceRequest.serializer(), SelectWorkspaceRequest()))
+        assertEquals(
+            """{"surface_id":"E35FB51D-003D-4E1B-A094-EBDF47130FAB"}""",
+            BridgeJson.encodeToString(
+                SelectWorkspaceRequest.serializer(),
+                SelectWorkspaceRequest(surfaceId = "E35FB51D-003D-4E1B-A094-EBDF47130FAB"),
+            ),
+        )
+    }
+
+    @Test
+    fun parsesCreateRepliesAndALayoutAsTheBridgeWritesThem() {
+        val ws = BridgeJson.decodeFromString(
+            CreateWorkspaceResponse.serializer(),
+            """{"workspace_id":"21B6A522-37FB-46A8-ABB3-F69917522BEF",
+               "surface_id":"2620FAA3-A6AE-41AD-8C6A-4A4ED139D622"}""",
+        )
+        assertEquals("21B6A522-37FB-46A8-ABB3-F69917522BEF", ws.workspaceId)
+        val pane = BridgeJson.decodeFromString(
+            CreatePaneResponse.serializer(),
+            """{"surface_id":"B9040FB4-ADA0-4473-9A08-8152BC33B1B1",
+               "pane_id":"9C1D0C6B-6E4F-4B2A-9C3D-1E2F3A4B5C6D"}""",
+        )
+        assertEquals("9C1D0C6B-6E4F-4B2A-9C3D-1E2F3A4B5C6D", pane.paneId)
+        val layout = BridgeJson.decodeFromString(
+            WorkspaceLayout.serializer(),
+            """{"estimated":false,"panes":[
+              {"id":"a","x":0,"y":0,"w":0.5,"h":1,"focused":true,"surface_ids":["s1"],"selected_surface_id":"s1"},
+              {"id":"b","x":0.5,"y":0.5,"w":0.5,"h":0.5,"focused":false,"surface_ids":[],"selected_surface_id":""}]}""",
+        )
+        assertFalse(layout.estimated)
+        assertEquals(2, layout.panes.size)
+        assertEquals(0.5, layout.panes[1].y, 0.0)
+        assertTrue(layout.panes[0].focused)
+        assertEquals(listOf("s1"), layout.panes[0].surfaceIds)
+        val unknown = BridgeJson.decodeFromString(WorkspaceLayout.serializer(), """{"estimated":true,"panes":[]}""")
+        assertTrue(unknown.estimated)
+    }
+
+    @Test
     fun encodesFeedReplyWithRequestIdAndParams() {
         val params = buildJsonObject { put("decision", "approve") }
         val reply = FeedReply(kind = "permissionRequest", requestId = "req-9", params = params)

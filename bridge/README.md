@@ -410,6 +410,12 @@ routes require `Authorization: Bearer <device-token>`. A `503 {"error":
 | POST | `/feed/{id}/reply` | answer a prompt: `{kind, request_id, params}` |
 | POST | `/sessions/{id}/rename` | set a workspace's title in cmux: `{title}` |
 | POST | `/sessions/{id}/yolo-mode` | set a workspace's auto-reply mode for permission prompts: `{mode}` (`""` \| `always` \| `all` \| `bypass`) |
+| POST | `/sessions` | create a workspace: `{cwd, title?}`; `cwd` must exist, be a directory and lie under `$HOME` → `{workspace_id, surface_id}` |
+| GET  | `/sessions/{id}/layout` | where the workspace's panes sit, as fractions of their bounding box: `{estimated, panes:[{id,x,y,w,h,focused,surface_ids,selected_surface_id}]}` |
+| POST | `/sessions/{id}/panes` | new terminal relative to a viewed surface: `{surface_id, placement}` (`left` \| `right` \| `up` \| `down` \| `tab`) → `{surface_id, pane_id}` |
+| POST | `/sessions/{id}/select` | show the workspace on the Mac, focusing `{surface_id?}` |
+| DELETE | `/sessions/{id}` | close a workspace |
+| DELETE | `/sessions/{id}/panes/{surfaceId}` | close one terminal surface |
 | POST | `/devices/register` | store this device's FCM token: `{fcm_token}` |
 | POST | `/devices/test-push` | send a test notification to this device |
 | POST | `/devices/pair` | redeem a pairing code (no bearer token yet): `{code, name, device_pubkey}` |
@@ -427,13 +433,21 @@ takes `mode: "ultraplan" | "manual" | "autoAccept" | "bypassPermissions"`;
 
 ## Safety
 
-The bridge calls **only** read methods, terminal input/replay, feed replies,
+The bridge calls read methods, terminal input/replay, feed replies,
 workspace rename (cmux's own documented `workspace.rename` RPC, the same
-one behind `cmux rename-workspace` / Cmd+Shift+R), and YOLO mode's
+one behind `cmux rename-workspace` / Cmd+Shift+R), YOLO mode's
 auto-replies to permission prompts (`feed.permission.reply`, the same RPC a
-phone tap on Allow/Bypass in Feed sends — see below). It never creates,
-closes, or restores workspaces/terminals. Tests use a fake `cmux` binary and
-never touch the real socket.
+phone tap on Allow/Bypass in Feed sends — see below), and the workspace and
+pane mutations behind `cmux new-workspace` / `new-split` / `new-surface` /
+`select-workspace` / `close-workspace` / `close-surface`
+(`workspace.create`, `surface.split`, `surface.create`, `workspace.select`,
+`surface.focus`, `workspace.close`, `surface.close`). Every mutation names
+its target by UUID and is refused with a 400 before any RPC otherwise --
+cmux's create methods default to whatever is focused on the Mac when given
+no target. Nothing created this way takes focus (`focus:false`); a new
+workspace's directory must exist, be a directory and lie under `$HOME`.
+It never restores sessions. Tests use a fake `cmux` binary and never touch
+the real socket.
 
 **YOLO mode** is an opt-in, per-workspace auto-reply for permission prompts,
 enabled via `POST /sessions/{id}/yolo-mode`. The mode (`always`/`all`/

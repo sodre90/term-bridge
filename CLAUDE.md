@@ -21,8 +21,10 @@ landed broken while it was missing from this list.
 ## Non-negotiable invariants
 
 1. **cmux is a black box.** Only talk to it via `cmux rpc` / `cmux events`.
-   Never copy cmux source. Never add workspace create/close/restore to the
-   bridge — it is deliberately read/terminal-I/O/feed-reply/rename only.
+   Never copy cmux source. Every mutation names its target by UUID; cmux's
+   create methods fall back to whatever is focused on the Mac when given
+   none, so never call `workspace.create`/`surface.create` to probe them
+   (see `docs/superpowers/specs/2026-09-12-workspace-layout-control-design.md`).
 2. **`internal/relay/multitenant_test.go` must always pass** — it enforces
    tenant isolation, not just a test.
 3. **Wire-format lockstep.** The app<->bridge protocol is hand-mirrored in

@@ -94,6 +94,68 @@ data class RenameWorkspaceRequest(val title: String)
 @Serializable
 data class SetYoloModeRequest(val mode: String)
 
+/** Body of `POST /sessions`: a new workspace in [cwd] on the Mac (absolute,
+ *  under the home directory -- the bridge checks). Empty [title] lets cmux
+ *  pick one. Mirrors `CreateWorkspaceRequest` in bridge/internal/wire/layout.go. */
+@Serializable
+data class CreateWorkspaceRequest(val cwd: String, val title: String? = null)
+
+/** Reply to `POST /sessions`: the new workspace and its first terminal. */
+@Serializable
+data class CreateWorkspaceResponse(
+    @SerialName("workspace_id") val workspaceId: String = "",
+    @SerialName("surface_id") val surfaceId: String = "",
+)
+
+/** Body of `POST /sessions/{id}/panes`: a new terminal placed relative to
+ *  [surfaceId], the surface being viewed; [placement] is one of
+ *  [PanePlacement]'s values. */
+@Serializable
+data class CreatePaneRequest(@SerialName("surface_id") val surfaceId: String, val placement: String)
+
+/** Reply to `POST /sessions/{id}/panes`. */
+@Serializable
+data class CreatePaneResponse(
+    @SerialName("surface_id") val surfaceId: String = "",
+    @SerialName("pane_id") val paneId: String = "",
+)
+
+/** [CreatePaneRequest.placement]'s values -- mirrors the `Placement*`
+ *  constants in bridge/internal/wire/layout.go. The four directions split
+ *  the viewed surface's pane; [TAB] adds a tab to it. */
+object PanePlacement {
+    const val LEFT = "left"
+    const val RIGHT = "right"
+    const val UP = "up"
+    const val DOWN = "down"
+    const val TAB = "tab"
+}
+
+/** Body of `POST /sessions/{id}/select`: show the workspace on the Mac and,
+ *  when set, focus [surfaceId] in it. */
+@Serializable
+data class SelectWorkspaceRequest(@SerialName("surface_id") val surfaceId: String? = null)
+
+/** Reply to `GET /sessions/{id}/layout`: where each pane sits, as fractions
+ *  of the panes' bounding box. [estimated] means cmux had no geometry for
+ *  the workspace yet and the panes are equal columns in index order. Mirrors
+ *  `Layout` in bridge/internal/wire/layout.go. */
+@Serializable
+data class WorkspaceLayout(val estimated: Boolean = false, val panes: List<LayoutPane> = emptyList())
+
+/** One pane in a [WorkspaceLayout]; [x], [y], [w], [h] are in 0..1. */
+@Serializable
+data class LayoutPane(
+    val id: String = "",
+    val x: Double = 0.0,
+    val y: Double = 0.0,
+    val w: Double = 1.0,
+    val h: Double = 1.0,
+    val focused: Boolean = false,
+    @SerialName("surface_ids") val surfaceIds: List<String> = emptyList(),
+    @SerialName("selected_surface_id") val selectedSurfaceId: String = "",
+)
+
 /** A simplified event the bridge fans out over the events WebSocket. */
 @Serializable
 data class EventFrame(

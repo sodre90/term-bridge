@@ -139,6 +139,12 @@ Defense in depth, all the way to the cmux socket:
   into the Inbox yet — their reply schema isn't confirmed live.
 - **Rename a workspace** — long-press a workspace on the phone to set its
   persistent display title in cmux, via `POST /sessions/{id}/rename`.
+- **Open, split, show and close** — create a workspace in a directory under
+  your home (`POST /sessions`), split the pane you are viewing or add a tab
+  to it (`POST /sessions/{id}/panes`, with a preview of where it lands), make
+  the Mac show what the phone is looking at (`POST /sessions/{id}/select`),
+  and close a pane or a whole workspace after a confirmation (`DELETE`).
+  Nothing created from the phone takes focus on the Mac unless asked.
 - **YOLO mode** — long-press a workspace to set a per-workspace auto-reply
   mode (Off/Always/All tools/Bypass) for permission prompts; the Mac agent
   replies on cmux's behalf with no phone round-trip, and the mode is shown as
@@ -153,9 +159,12 @@ Defense in depth, all the way to the cmux socket:
 - **Optional push** — FCM "an agent needs you" notifications, off by default and
   requiring no Firebase config to build.
 
-The bridge performs **only** read methods, terminal input/replay, feed
-replies (including YOLO mode's automatic ones), and workspace rename — it
-never creates, closes, or restores workspaces or terminals.
+The bridge performs read methods, terminal input/replay, feed replies
+(including YOLO mode's automatic ones), workspace rename, and — since
+2026-09-12 — workspace/pane create, select and close, each naming its target
+by UUID. It never restores sessions. Creating a shell from the phone adds no
+capability terminal input did not already give; closing is the one
+destructive action and is confirmed on the phone first.
 
 ## Repository layout
 

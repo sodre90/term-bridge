@@ -42,6 +42,12 @@ func (s *Server) routes(wrap func(http.Handler) http.Handler) http.Handler {
 	mux.Handle("POST /feed/{id}/reply", wrap(http.HandlerFunc(s.handleFeedReply)))
 	mux.Handle("POST /sessions/{id}/rename", wrap(http.HandlerFunc(s.handleRenameWorkspace)))
 	mux.Handle("POST /sessions/{id}/yolo-mode", wrap(http.HandlerFunc(s.handleSetYoloMode)))
+	mux.Handle("POST /sessions", wrap(http.HandlerFunc(s.handleCreateWorkspace)))
+	mux.Handle("DELETE /sessions/{id}", wrap(http.HandlerFunc(s.handleCloseWorkspace)))
+	mux.Handle("POST /sessions/{id}/select", wrap(http.HandlerFunc(s.handleSelectWorkspace)))
+	mux.Handle("GET /sessions/{id}/layout", wrap(http.HandlerFunc(s.handleLayout)))
+	mux.Handle("POST /sessions/{id}/panes", wrap(http.HandlerFunc(s.handleCreatePane)))
+	mux.Handle("DELETE /sessions/{id}/panes/{surfaceId}", wrap(http.HandlerFunc(s.handleCloseSurface)))
 	return mux
 }
 

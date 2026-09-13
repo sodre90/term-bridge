@@ -13,9 +13,9 @@ type renameWorkspaceRequest struct {
 
 // handleRenameWorkspace sets a workspace's persistent display title in cmux
 // via its documented workspace.rename RPC (the same one behind cmux's own
-// `cmux rename-workspace` CLI command and Cmd+Shift+R shortcut) -- the one
-// deliberate mutation the bridge makes to workspace state; see README's
-// Security model / "What the app does" for the rest of the read-only stance.
+// `cmux rename-workspace` CLI command and Cmd+Shift+R shortcut). It was the
+// bridge's only workspace mutation until create/select/close arrived in
+// workspaces.go and panes.go; see README's "What the app does".
 func (s *Server) handleRenameWorkspace(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	var req renameWorkspaceRequest
