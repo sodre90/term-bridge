@@ -124,23 +124,22 @@ func (s *AttachmentStore) Save(image []byte) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	discard := func() { _ = tmp.Close(); _ = os.Remove(tmp.Name()) }
 	if _, err := tmp.Write(image); err != nil {
-		tmp.Close()
-		os.Remove(tmp.Name())
+		discard()
 		return "", err
 	}
 	if err := tmp.Chmod(0o600); err != nil {
-		tmp.Close()
-		os.Remove(tmp.Name())
+		discard()
 		return "", err
 	}
 	if err := tmp.Close(); err != nil {
-		os.Remove(tmp.Name())
+		discard()
 		return "", err
 	}
 	path := filepath.Join(s.dir, s.freshName(ext))
 	if err := os.Rename(tmp.Name(), path); err != nil {
-		os.Remove(tmp.Name())
+		discard()
 		return "", err
 	}
 	return path, nil
