@@ -53,6 +53,17 @@ class SessionsViewModel(
     private val _actionError = MutableStateFlow<String?>(null)
     val actionError: StateFlow<String?> = _actionError.asStateFlow()
 
+    // The last create/show/close outcome, for a one-line notice; the screen
+    // clears it once shown. Kept apart from [actionError] because a success
+    // is worth a line too ("Shown on Mac") and a failure needs a typed
+    // reason the screen can word, not raw exception text.
+    private val _actionOutcome = MutableStateFlow<ActionOutcome?>(null)
+    val actionOutcome: StateFlow<ActionOutcome?> = _actionOutcome.asStateFlow()
+
+    fun dismissActionOutcome() {
+        _actionOutcome.value = null
+    }
+
     // True only while a user-initiated refresh (pull gesture or the Refresh
     // button) is in flight -- drives PullToRefreshBox's spinner. Background
     // auto-refresh (see [subscribeToEvents]) deliberately does NOT set this;
@@ -150,6 +161,54 @@ class SessionsViewModel(
                 }
             } catch (e: Exception) {
                 _actionError.value = e.message ?: setYoloModeFailedMessage
+            }
+        }
+    }
+
+    /** Directories to offer for a new workspace, from the list as loaded. */
+    fun recentDirectories(): List<RecentDirectory> =
+        (state.value as? UiState.Ready)?.data?.let(::recentDirectories).orEmpty()
+
+    /** Creates a workspace on the Mac and hands its first terminal's surface
+     *  id to [onCreated] so the caller can open it; the list reloads behind. */
+    fun createWorkspace(cwd: String, title: String?, onCreated: (surfaceId: String) -> Unit) {
+        mutate(onSuccess = null) { client ->
+            val created = client.createWorkspace(cwd, title)
+            onCreated(created.surfaceId)
+            refreshRequests.tryEmit(Unit)
+        }
+    }
+
+    /** Makes the Mac show a workspace. */
+    fun showOnMac(workspaceId: String) {
+        mutate(ActionOutcome.ShownOnMac) { it.selectWorkspace(workspaceId) }
+    }
+
+    /** Closes a workspace after the screen's confirmation. The row goes at
+     *  once and the list refetches silently behind it, the way an event
+     *  does -- a hard [refresh] would replace the list with a spinner. */
+    fun closeWorkspace(workspaceId: String) {
+        mutate(ActionOutcome.WorkspaceClosed) { client ->
+            client.closeWorkspace(workspaceId)
+            val current = _state.value
+            if (current is UiState.Ready) {
+                _state.value = UiState.Ready(current.data.filterNot { it.id == workspaceId })
+            }
+            refreshRequests.tryEmit(Unit)
+        }
+    }
+
+    private fun mutate(onSuccess: ActionOutcome?, block: suspend (FallbackBridgeClient) -> Unit) {
+        val client = bridge.activeBridge() ?: run {
+            _actionError.value = bridgeNotConfiguredMessage
+            return
+        }
+        viewModelScope.launch {
+            try {
+                block(client)
+                _actionOutcome.value = onSuccess
+            } catch (e: Exception) {
+                _actionOutcome.value = ActionOutcome.Failed(actionFailureOf(e), e.message)
             }
         }
     }

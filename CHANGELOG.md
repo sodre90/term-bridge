@@ -44,6 +44,17 @@ every section after it itemizes changes individually. Purely internal refactors
   that was a gap from the start, only worth closing once a multi-megabyte
   frame became a legitimate thing to send. A message over the limit ends
   the socket like a decrypt failure does. (cmux-app-ej0)
+- Create, show and close workspaces and panes from the phone. A "+" on the
+  sessions list opens a new workspace in a directory picked from those the
+  listed workspaces already use, or typed; the app goes straight into its
+  terminal. A workspace's menu gains "Show on Mac" (brings it to the front
+  there) and "Close workspace…", which names the workspace, counts its
+  panes and warns when an agent in it is waiting or YOLO is on, before
+  closing it -- the only confirmation is on the phone. The terminal's
+  overflow menu gains "New tab in this pane" (opens and switches to it),
+  "Show on Mac" and "Close this pane…". Nothing created takes focus on the
+  Mac, and a bridge that predates these routes is reported as too old
+  rather than as a mystery failure. (cmux-app-9ll)
 - The bridge can create a workspace (`POST /sessions`, directory under
   `$HOME`), split the viewed pane or add a tab to it
   (`POST /sessions/{id}/panes`), report where a workspace's panes sit
@@ -52,7 +63,7 @@ every section after it itemizes changes individually. Purely internal refactors
   (`DELETE`). This lifts the never-create/close rule by owner decision; see
   `docs/superpowers/specs/2026-09-12-workspace-layout-control-design.md`.
   Every call names its target by UUID and nothing created takes focus on
-  the Mac. The phone side follows in later commits. (cmux-app-9ll)
+  the Mac. (cmux-app-9ll)
 
 ### Compatibility
 

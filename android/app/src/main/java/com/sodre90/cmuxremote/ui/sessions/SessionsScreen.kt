@@ -25,6 +25,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
@@ -39,6 +40,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -46,6 +48,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -53,6 +57,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
@@ -100,8 +105,24 @@ fun SessionsScreen(
 ) {
     val state by vm.state.collectAsState()
     val pendingCount by vm.pendingCount.collectAsState()
+    val actionOutcome by vm.actionOutcome.collectAsState()
+    val actionError by vm.actionError.collectAsState()
+    var creatingWorkspace by rememberSaveable { mutableStateOf(false) }
+    val snackbar = remember { SnackbarHostState() }
+
+    actionOutcome?.let { outcome ->
+        val text = actionOutcomeText(outcome)
+        LaunchedEffect(outcome) {
+            snackbar.showSnackbar(text)
+            vm.dismissActionOutcome()
+        }
+    }
+    actionError?.let { text ->
+        LaunchedEffect(text) { snackbar.showSnackbar(text) }
+    }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.sessions_title)) },
@@ -115,6 +136,9 @@ fun SessionsScreen(
                     // "cmux sessions" wrapped to two lines on a 360dp phone, so the
                     // home screen looked broken from the first frame. Inbox keeps its
                     // label because it anchors the pending badge above.
+                    IconButton(onClick = { creatingWorkspace = true }) {
+                        Icon(Icons.Default.Add, contentDescription = stringResource(R.string.sessions_new_workspace))
+                    }
                     IconButton(onClick = { vm.userRefresh() }) {
                         Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.action_refresh))
                     }
@@ -150,6 +174,17 @@ fun SessionsScreen(
                 }
             }
         }
+    }
+
+    if (creatingWorkspace) {
+        NewWorkspaceDialog(
+            recent = vm.recentDirectories(),
+            onCreate = { cwd, title ->
+                creatingWorkspace = false
+                vm.createWorkspace(cwd, title, onCreated = onOpenTerminal)
+            },
+            onDismiss = { creatingWorkspace = false },
+        )
     }
 }
 
@@ -192,6 +227,7 @@ private fun WorkspaceList(vm: SessionsViewModel, workspaces: List<Workspace>, on
 
     var renamingWorkspace by remember { mutableStateOf<Workspace?>(null) }
     var yoloPickerWorkspace by remember { mutableStateOf<Workspace?>(null) }
+    var closingWorkspace by remember { mutableStateOf<Workspace?>(null) }
 
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
@@ -226,6 +262,8 @@ private fun WorkspaceList(vm: SessionsViewModel, workspaces: List<Workspace>, on
                         onOpen = onOpen,
                         onRename = { renamingWorkspace = ws },
                         onYoloMode = { yoloPickerWorkspace = ws },
+                        onShowOnMac = { vm.showOnMac(ws.id) },
+                        onClose = { closingWorkspace = ws },
                         dragHandle = {
                             // Custom order is only meaningful when it's the
                             // visible order -- disabled while "Waiting first"
@@ -271,6 +309,17 @@ private fun WorkspaceList(vm: SessionsViewModel, workspaces: List<Workspace>, on
                 vm.setYoloMode(ws.id, mode)
                 yoloPickerWorkspace = null
             },
+        )
+    }
+
+    closingWorkspace?.let { ws ->
+        CloseWorkspaceDialog(
+            ws = ws,
+            onConfirm = {
+                vm.closeWorkspace(ws.id)
+                closingWorkspace = null
+            },
+            onDismiss = { closingWorkspace = null },
         )
     }
 }
@@ -415,6 +464,8 @@ private fun WorkspaceCard(
     onOpen: (String) -> Unit,
     onRename: () -> Unit,
     onYoloMode: () -> Unit,
+    onShowOnMac: () -> Unit,
+    onClose: () -> Unit,
     dragHandle: @Composable () -> Unit,
 ) {
     var showActionMenu by rememberSaveable { mutableStateOf(false) }
@@ -583,6 +634,26 @@ private fun WorkspaceCard(
                                         onYoloMode()
                                     },
                                 )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.sessions_show_on_mac)) },
+                                    onClick = {
+                                        showActionMenu = false
+                                        onShowOnMac()
+                                    },
+                                )
+                                HorizontalDivider()
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            stringResource(R.string.sessions_close_workspace),
+                                            color = MaterialTheme.colorScheme.error,
+                                        )
+                                    },
+                                    onClick = {
+                                        showActionMenu = false
+                                        onClose()
+                                    },
+                                )
                             }
                         }
                         dragHandle()
@@ -611,6 +682,8 @@ private fun WorkspaceCardPreview() {
             onToggle = {},
             onOpen = {},
             onRename = {},
+            onShowOnMac = {},
+            onClose = {},
             onYoloMode = {},
             dragHandle = {},
         )
@@ -638,6 +711,8 @@ private fun WorkspaceCardAttentionPreview() {
             onToggle = {},
             onOpen = {},
             onRename = {},
+            onShowOnMac = {},
+            onClose = {},
             onYoloMode = {},
             dragHandle = {},
         )

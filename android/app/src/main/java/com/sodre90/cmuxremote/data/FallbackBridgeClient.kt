@@ -150,6 +150,14 @@ class FallbackBridgeClient(
     suspend fun replyFeed(feedId: String, reply: FeedReply) = call { it.replyFeed(feedId, reply) }
     suspend fun renameWorkspace(id: String, title: String) = call { it.renameWorkspace(id, title) }
     suspend fun setYoloMode(id: String, mode: String) = call { it.setYoloMode(id, mode) }
+    suspend fun createWorkspace(cwd: String, title: String?) = call { it.createWorkspace(cwd, title) }
+    suspend fun createPane(workspaceId: String, surfaceId: String, placement: String) =
+        call { it.createPane(workspaceId, surfaceId, placement) }
+    suspend fun layout(workspaceId: String) = call { it.layout(workspaceId) }
+    suspend fun selectWorkspace(workspaceId: String, surfaceId: String? = null) =
+        call { it.selectWorkspace(workspaceId, surfaceId) }
+    suspend fun closeWorkspace(workspaceId: String) = call { it.closeWorkspace(workspaceId) }
+    suspend fun closeSurface(workspaceId: String, surfaceId: String) = call { it.closeSurface(workspaceId, surfaceId) }
 
     /**
      * Registers on EVERY configured slot, not just whichever answers first.

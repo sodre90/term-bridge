@@ -39,14 +39,23 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -111,6 +120,8 @@ import com.sodre90.cmuxremote.R
 import com.sodre90.cmuxremote.model.DecodedGrid
 import com.sodre90.cmuxremote.ui.UiState
 import com.sodre90.cmuxremote.ui.YoloBadge
+import com.sodre90.cmuxremote.ui.sessions.ClosePaneDialog
+import com.sodre90.cmuxremote.ui.sessions.actionOutcomeText
 import com.sodre90.cmuxremote.ui.theme.CmuxTheme
 import com.sodre90.cmuxremote.ui.yoloModeLabel
 import kotlinx.coroutines.delay
@@ -167,10 +178,22 @@ private const val PASTE_PREVIEW_CHARS = 2000
 fun TerminalScreen(
     vm: TerminalViewModel,
     onBack: () -> Unit,
+    onOpenSurface: (String) -> Unit = {},
 ) {
     val state by vm.state.collectAsState()
     val yoloMode by vm.yoloMode.collectAsState()
     val paneLabel by vm.paneLabel.collectAsState()
+    val workspaceId by vm.workspaceId.collectAsState()
+    val actionOutcome by vm.actionOutcome.collectAsState()
+    var closingPane by rememberSaveable { mutableStateOf(false) }
+    val snackbar = remember { SnackbarHostState() }
+    actionOutcome?.let { outcome ->
+        val text = actionOutcomeText(outcome)
+        LaunchedEffect(outcome) {
+            snackbar.showSnackbar(text)
+            vm.dismissActionOutcome()
+        }
+    }
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val deliveryStatus by vm.deliveryStatus.collectAsState()
     val lostInputNotice by vm.lostInputNotice.collectAsState()
@@ -262,6 +285,7 @@ fun TerminalScreen(
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
                 title = {
@@ -311,6 +335,12 @@ fun TerminalScreen(
                     TextButton(onClick = { wrap = !wrap }) {
                         Text(stringResource(if (wrap) R.string.terminal_wrap_on else R.string.terminal_wrap_off))
                     }
+                    PaneActionsMenu(
+                        enabled = workspaceId != null,
+                        onNewTab = { vm.newTab(onCreated = onOpenSurface) },
+                        onShowOnMac = { vm.showOnMac() },
+                        onClose = { closingPane = true },
+                    )
                 },
                 // Landscape on a phone leaves ~360dp of height; the stock 64dp bar
                 // plus the status bar took a third of it, and the rows it cost are
@@ -549,6 +579,17 @@ fun TerminalScreen(
             onDismiss = { pendingPaste = null },
         )
     }
+    if (closingPane) {
+        ClosePaneDialog(
+            paneName = paneLabel.pane,
+            onConfirm = {
+                closingPane = false
+                vm.closePane(onClosed = onBack)
+            },
+            onDismiss = { closingPane = false },
+        )
+    }
+
     attachmentDraft?.let { draft ->
         AttachmentDialog(
             draft = draft,
@@ -798,6 +839,46 @@ private fun DeliveryStatusLabelDelayedPreview() {
 private fun DeliveryStatusLabelLostInputPreview() {
     CmuxTheme {
         DeliveryStatusLabel(status = DeliveryStatus.CONFIRMED, lostInputNotice = true)
+    }
+}
+
+/**
+ * The pane's own actions, behind one icon: the bar has no room for more
+ * words next to Refresh and Wrap. Disabled until the owning workspace is
+ * known, since every route is keyed by it. Splitting joins this menu once
+ * the placement preview exists.
+ */
+@Composable
+private fun PaneActionsMenu(enabled: Boolean, onNewTab: () -> Unit, onShowOnMac: () -> Unit, onClose: () -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { open = true }, enabled = enabled) {
+            Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.terminal_pane_actions))
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.terminal_new_tab)) },
+                onClick = {
+                    open = false
+                    onNewTab()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.terminal_show_on_mac)) },
+                onClick = {
+                    open = false
+                    onShowOnMac()
+                },
+            )
+            HorizontalDivider()
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.terminal_close_pane), color = MaterialTheme.colorScheme.error) },
+                onClick = {
+                    open = false
+                    onClose()
+                },
+            )
+        }
     }
 }
 

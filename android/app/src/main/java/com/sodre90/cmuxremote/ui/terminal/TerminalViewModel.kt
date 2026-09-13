@@ -6,10 +6,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sodre90.cmuxremote.BuildConfig
 import com.sodre90.cmuxremote.data.BridgeGateway
+import com.sodre90.cmuxremote.data.FallbackBridgeClient
 import com.sodre90.cmuxremote.data.SocketReconnector
 import com.sodre90.cmuxremote.data.TerminalDisplayGateway
 import com.sodre90.cmuxremote.data.TerminalSocket
 import com.sodre90.cmuxremote.model.DecodedGrid
+import com.sodre90.cmuxremote.model.PanePlacement
 import com.sodre90.cmuxremote.model.RenderGrid
 import com.sodre90.cmuxremote.model.RenderGridDecoder
 import com.sodre90.cmuxremote.model.Style
@@ -18,6 +20,8 @@ import com.sodre90.cmuxremote.model.TerminalDownType
 import com.sodre90.cmuxremote.model.Workspace
 import com.sodre90.cmuxremote.model.mergedOnto
 import com.sodre90.cmuxremote.ui.UiState
+import com.sodre90.cmuxremote.ui.sessions.ActionOutcome
+import com.sodre90.cmuxremote.ui.sessions.actionFailureOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
@@ -178,6 +182,57 @@ class TerminalViewModel(
     private val _paneLabel = MutableStateFlow(PaneLabel())
     val paneLabel: StateFlow<PaneLabel> = _paneLabel.asStateFlow()
 
+    // The owning workspace, once [loadWorkspaceContext] has found it: every
+    // workspace/pane route is keyed by it, so the overflow menu's actions
+    // stay disabled until it is known.
+    private val _workspaceId = MutableStateFlow<String?>(null)
+    val workspaceId: StateFlow<String?> = _workspaceId.asStateFlow()
+
+    private val _actionOutcome = MutableStateFlow<ActionOutcome?>(null)
+    val actionOutcome: StateFlow<ActionOutcome?> = _actionOutcome.asStateFlow()
+
+    fun dismissActionOutcome() {
+        _actionOutcome.value = null
+    }
+
+    /** Makes the Mac show this pane. */
+    fun showOnMac() {
+        mutate(ActionOutcome.ShownOnMac) { client, ws -> client.selectWorkspace(ws, surfaceId) }
+    }
+
+    /** A new terminal tab beside this one in the same pane; the new surface
+     *  id goes to [onCreated] so the caller can switch to it. */
+    fun newTab(onCreated: (surfaceId: String) -> Unit) {
+        mutate(onSuccess = null) { client, ws ->
+            onCreated(client.createPane(ws, surfaceId, PanePlacement.TAB).surfaceId)
+        }
+    }
+
+    /** Closes this pane after the screen's confirmation; [onClosed] runs once
+     *  cmux has it, so the caller can leave the screen. */
+    fun closePane(onClosed: () -> Unit) {
+        mutate(onSuccess = null) { client, ws ->
+            client.closeSurface(ws, surfaceId)
+            onClosed()
+        }
+    }
+
+    private fun mutate(
+        onSuccess: ActionOutcome?,
+        block: suspend (client: FallbackBridgeClient, workspaceId: String) -> Unit,
+    ) {
+        val client = bridge.activeBridge() ?: return
+        val ws = _workspaceId.value ?: return
+        viewModelScope.launch {
+            try {
+                block(client, ws)
+                _actionOutcome.value = onSuccess
+            } catch (e: Exception) {
+                _actionOutcome.value = ActionOutcome.Failed(actionFailureOf(e), e.message)
+            }
+        }
+    }
+
     // The seq/ack bookkeeping behind the never-double-send guarantee for
     // non-idempotent terminal input -- see DeliveryTracker. Its log lines
     // carry only dispatch metadata (seq/type/sent-flag) plus a redacted text
@@ -234,6 +289,7 @@ class TerminalViewModel(
                 val ws = client.sessions().firstOrNull { ws -> ws.terminals.any { it.id == surfaceId } }
                 _yoloMode.value = ws?.yoloMode.orEmpty()
                 _paneLabel.value = paneLabelOf(ws, surfaceId)
+                _workspaceId.value = ws?.id
                 ws?.let { cancelAttentionNotification(it.id) }
             } catch (_: Exception) {
                 // Best-effort display only; leave it blank on failure.

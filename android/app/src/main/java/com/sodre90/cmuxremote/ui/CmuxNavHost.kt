@@ -340,7 +340,20 @@ fun CmuxNavHost(
                     }
                 },
             )
-            TerminalScreen(vm = vm, onBack = { navController.popBackStack() })
+            TerminalScreen(
+                vm = vm,
+                onBack = { navController.popBackStack() },
+                // A pane made from this one replaces it on the back stack:
+                // back from the new tab returns to the list, not to the
+                // pane it was made from -- that one is a tap away either
+                // way, and a stack of sibling panes is not.
+                onOpenSurface = { surfaceId ->
+                    navController.navigate(Routes.terminal(surfaceId)) {
+                        popUpTo(entry.destination.id) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                },
+            )
         }
 
         composable(Routes.INBOX) {

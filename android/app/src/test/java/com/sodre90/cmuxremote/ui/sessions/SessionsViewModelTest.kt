@@ -422,4 +422,112 @@ class SessionsViewModelTest {
         // Reaches the underlying gateway, not just VM-local state.
         assertEquals(true, orderGateway.loadSortByAttention())
     }
+
+    private val twoWorkspaces = """{"workspaces":[
+        {"id":"ws-a","cwd":"/Users/me/prj/a","title":"A","terminals":[{"id":"s-a","title":"A"}]},
+        {"id":"ws-b","cwd":"/Users/me/prj/b","title":"B","terminals":[{"id":"s-b","title":"B"}]}]}"""
+
+    /** A server that lists [twoWorkspaces] and answers the mutation routes
+     *  with [mutation], recording every non-list request. */
+    private fun mutationServer(mutation: (RecordedRequest) -> MockResponse): MutableList<RecordedRequest> {
+        val seen = mutableListOf<RecordedRequest>()
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse = when (request.path) {
+                "/sessions" -> if (request.method == "GET") {
+                    MockResponse().setBody(twoWorkspaces)
+                } else {
+                    synchronized(seen) { seen.add(request) }
+                    mutation(request)
+                }
+                "/feed/pending" -> MockResponse().setBody("""{"items":[]}""")
+                else -> {
+                    synchronized(seen) { seen.add(request) }
+                    mutation(request)
+                }
+            }
+        }
+        return seen
+    }
+
+    private fun loadedViewModel(): SessionsViewModel {
+        val gw = FakeSessionsBridgeGateway()
+        gw.bridge = bridgeFor(server)
+        val vm = sessionsViewModel(gw, orderGateway)
+        waitUntil { vm.state.value is UiState.Ready }
+        return vm
+    }
+
+    @Test
+    fun createWorkspaceHandsTheNewSurfaceToTheCallerAndReloads() {
+        val seen = mutationServer {
+            MockResponse().setBody("""{"workspace_id":"ws-new","surface_id":"s-new"}""")
+        }
+        val vm = loadedViewModel()
+        assertEquals(listOf("/Users/me/prj/a", "/Users/me/prj/b"), vm.recentDirectories().map { it.path })
+
+        val opened = AtomicReference<String>()
+        vm.createWorkspace("/Users/me/prj/c", "C", onCreated = { opened.set(it) })
+
+        waitUntil { opened.get() == "s-new" }
+        val create = synchronized(seen) { seen.single() }
+        assertEquals("POST", create.method)
+        assertEquals("""{"cwd":"/Users/me/prj/c","title":"C"}""", create.body.readUtf8())
+        assertEquals(null, vm.actionOutcome.value)
+    }
+
+    @Test
+    fun closeWorkspaceDropsTheRowBeforeTheReloadAndSaysSo() {
+        val lists = AtomicInteger(0)
+        val reloadGate = CountDownLatch(1)
+        val deletes = mutableListOf<RecordedRequest>()
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse = when {
+                request.path == "/sessions" -> {
+                    // The reload after the close waits until the test has
+                    // looked at the list, so the immediate drop is observable.
+                    if (lists.incrementAndGet() > 1) reloadGate.await()
+                    MockResponse().setBody(twoWorkspaces)
+                }
+                request.method == "DELETE" -> {
+                    synchronized(deletes) { deletes.add(request) }
+                    MockResponse().setBody("""{"ok":true}""")
+                }
+                else -> MockResponse().setBody("""{"items":[]}""")
+            }
+        }
+        val vm = loadedViewModel()
+
+        vm.closeWorkspace("ws-a")
+
+        waitUntil { vm.actionOutcome.value == ActionOutcome.WorkspaceClosed }
+        assertEquals(listOf("ws-b"), (vm.state.value as UiState.Ready).data.map { it.id })
+        assertEquals("/sessions/ws-a", synchronized(deletes) { deletes.single().path })
+        reloadGate.countDown()
+    }
+
+    @Test
+    fun aBridgeWithoutTheRoutesIsReportedAsTooOld() {
+        mutationServer { MockResponse().setResponseCode(404).setBody("404 page not found") }
+        val vm = loadedViewModel()
+
+        vm.showOnMac("ws-a")
+
+        waitUntil { vm.actionOutcome.value is ActionOutcome.Failed }
+        assertEquals(ActionFailure.BRIDGE_TOO_OLD, (vm.actionOutcome.value as ActionOutcome.Failed).failure)
+        vm.dismissActionOutcome()
+        assertEquals(null, vm.actionOutcome.value)
+    }
+
+    @Test
+    fun showOnMacSelectsTheWorkspaceAndSaysSo() {
+        val seen = mutationServer { MockResponse().setBody("""{"ok":true}""") }
+        val vm = loadedViewModel()
+
+        vm.showOnMac("ws-b")
+
+        waitUntil { vm.actionOutcome.value == ActionOutcome.ShownOnMac }
+        val select = synchronized(seen) { seen.single() }
+        assertEquals("/sessions/ws-b/select", select.path)
+        assertEquals("{}", select.body.readUtf8())
+    }
 }

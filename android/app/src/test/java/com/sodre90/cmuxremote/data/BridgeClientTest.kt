@@ -1,6 +1,7 @@
 package com.sodre90.cmuxremote.data
 
 import com.sodre90.cmuxremote.model.FeedReply
+import com.sodre90.cmuxremote.model.PanePlacement
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -123,6 +124,90 @@ class BridgeClientTest {
         assertEquals("/devices/self-revoke", req.path)
         assertEquals("Bearer tok-7", req.getHeader("Authorization"))
         assertEquals("{}", req.body.readUtf8())
+    }
+
+    @Test
+    fun createWorkspacePostsTheDirectoryAndReadsBackWhatWasMade() {
+        server.enqueue(
+            MockResponse().setBody(
+                """{"workspace_id":"21B6A522-37FB-46A8-ABB3-F69917522BEF",
+                    "surface_id":"2620FAA3-A6AE-41AD-8C6A-4A4ED139D622"}""",
+            ),
+        )
+
+        val created = runBlocking { client.createWorkspace("/Users/me/prj/thing", title = "  ") }
+
+        assertEquals("21B6A522-37FB-46A8-ABB3-F69917522BEF", created.workspaceId)
+        assertEquals("2620FAA3-A6AE-41AD-8C6A-4A4ED139D622", created.surfaceId)
+        val req = server.takeRequest()
+        assertEquals("POST", req.method)
+        assertEquals("/sessions", req.path)
+        // A blank title is left out so cmux picks one.
+        assertEquals("""{"cwd":"/Users/me/prj/thing"}""", req.body.readUtf8())
+    }
+
+    @Test
+    fun createPanePostsThePlacementUnderTheWorkspace() {
+        server.enqueue(MockResponse().setBody("""{"surface_id":"new-s","pane_id":"new-p"}"""))
+
+        val created = runBlocking { client.createPane("ws-1", "surf-1", PanePlacement.DOWN) }
+
+        assertEquals("new-s", created.surfaceId)
+        assertEquals("new-p", created.paneId)
+        val req = server.takeRequest()
+        assertEquals("POST", req.method)
+        assertEquals("/sessions/ws-1/panes", req.path)
+        assertEquals("""{"surface_id":"surf-1","placement":"down"}""", req.body.readUtf8())
+    }
+
+    @Test
+    fun selectWorkspaceNamesTheSurfaceOnlyWhenGiven() {
+        server.enqueue(MockResponse().setBody("""{"ok":true}"""))
+        server.enqueue(MockResponse().setBody("""{"ok":true}"""))
+
+        runBlocking {
+            client.selectWorkspace("ws-1")
+            client.selectWorkspace("ws-1", "surf-2")
+        }
+
+        val bare = server.takeRequest()
+        assertEquals("/sessions/ws-1/select", bare.path)
+        assertEquals("{}", bare.body.readUtf8())
+        assertEquals("""{"surface_id":"surf-2"}""", server.takeRequest().body.readUtf8())
+    }
+
+    @Test
+    fun closesAreDeletes() {
+        server.enqueue(MockResponse().setBody("""{"ok":true}"""))
+        server.enqueue(MockResponse().setBody("""{"ok":true}"""))
+
+        runBlocking {
+            client.closeWorkspace("ws-1")
+            client.closeSurface("ws-1", "surf-2")
+        }
+
+        val ws = server.takeRequest()
+        assertEquals("DELETE", ws.method)
+        assertEquals("/sessions/ws-1", ws.path)
+        val surface = server.takeRequest()
+        assertEquals("DELETE", surface.method)
+        assertEquals("/sessions/ws-1/panes/surf-2", surface.path)
+    }
+
+    @Test
+    fun layoutDecodesPanesAndTheEstimatedFlag() {
+        server.enqueue(
+            MockResponse().setBody(
+                """{"estimated":true,"panes":[{"id":"p1","x":0,"y":0,"w":0.5,"h":1,"focused":true,
+                    "surface_ids":["s1"],"selected_surface_id":"s1"}]}""",
+            ),
+        )
+
+        val layout = runBlocking { client.layout("ws-1") }
+
+        assertTrue(layout.estimated)
+        assertEquals(0.5, layout.panes.single().w, 0.0)
+        assertEquals("/sessions/ws-1/layout", server.takeRequest().path)
     }
 
     @Test
