@@ -55,6 +55,17 @@ every section after it itemizes changes individually. Purely internal refactors
   "Show on Mac" and "Close this pane…". Nothing created takes focus on the
   Mac, and a bridge that predates these routes is reported as too old
   rather than as a mystery failure. (cmux-app-9ll)
+- Split a pane from the phone, and see where the new one will land before
+  it exists. "Split…" in the terminal's menu, and "New pane…" in a
+  workspace's menu and at the foot of its expanded pane list, open a sheet
+  with a miniature of the workspace's real pane layout: the pane being
+  split shrinks to half and a ghost pane slides in from the chosen side --
+  ← ↑ ↓ →, or Tab, which grows an extra tab on the pane instead. Tap
+  another pane in the miniature to split that one. The button says what
+  will happen ("Split right", "Add tab"); on success the terminal opens the
+  new pane. A workspace never yet shown on the Mac has no real geometry, so
+  its panes draw dashed as equal columns with a note. A refused split keeps
+  the sheet up with the reason. (cmux-app-9ll)
 - The bridge can create a workspace (`POST /sessions`, directory under
   `$HOME`), split the viewed pane or add a tab to it
   (`POST /sessions/{id}/panes`), report where a workspace's panes sit

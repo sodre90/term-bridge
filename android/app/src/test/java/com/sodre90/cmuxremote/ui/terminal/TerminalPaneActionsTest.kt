@@ -12,7 +12,9 @@ import com.sodre90.cmuxremote.data.SlotCredentialHealth
 import com.sodre90.cmuxremote.data.SlotCredentials
 import com.sodre90.cmuxremote.data.TerminalDisplayGateway
 import com.sodre90.cmuxremote.data.TerminalSocket
+import com.sodre90.cmuxremote.model.PanePlacement
 import com.sodre90.cmuxremote.ui.TestViewModelHost
+import com.sodre90.cmuxremote.ui.layout.PlacementState
 import com.sodre90.cmuxremote.ui.sessions.ActionOutcome
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -74,6 +76,10 @@ class TerminalPaneActionsTest {
                         {"id":"ws-b","cwd":"/y","title":"B","terminals":[{"id":"s-here","title":"B shell"}]}]}""",
                 )
                 "/sessions/ws-b/panes" -> recorded(request, """{"surface_id":"s-new","pane_id":"p-b"}""")
+                "/sessions/ws-b/layout" -> MockResponse().setBody(
+                    """{"estimated":false,"panes":[{"id":"p-b","x":0,"y":0,"w":1,"h":1,"focused":true,
+                        "surface_ids":["s-here"],"selected_surface_id":"s-here"}]}""",
+                )
                 "/sessions/ws-b/select", "/sessions/ws-b/panes/s-here" -> recorded(request, """{"ok":true}""")
                 else -> MockResponse().setResponseCode(404)
             }
@@ -152,5 +158,26 @@ class TerminalPaneActionsTest {
         assertEquals("DELETE", request.method)
         assertEquals("/sessions/ws-b/panes/s-here", request.path)
         assertNull(vm.actionOutcome.value)
+    }
+
+    @Test
+    fun splitOpensThisWorkspacesLayoutWithItsPaneTitlesAndHandsBackTheNewSurface() {
+        val vm = viewModel()
+
+        vm.openPlacement()
+
+        waitUntil { vm.placement.state.value is PlacementState.Ready }
+        val ready = vm.placement.state.value as PlacementState.Ready
+        assertEquals("ws-b", ready.workspaceId)
+        assertEquals(mapOf("s-here" to "B shell"), ready.titles)
+        assertEquals(listOf("s-here"), ready.layout.panes.single().surfaceIds)
+
+        val opened = AtomicReference<String>()
+        vm.placement.createPane("s-here", PanePlacement.UP, onCreated = { opened.set(it) })
+
+        waitUntil { opened.get() == "s-new" }
+        assertNull(vm.placement.state.value)
+        val request = synchronized(seen) { seen.single() }
+        assertEquals("""{"surface_id":"s-here","placement":"up"}""", request.body.readUtf8())
     }
 }

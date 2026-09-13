@@ -120,6 +120,7 @@ import com.sodre90.cmuxremote.R
 import com.sodre90.cmuxremote.model.DecodedGrid
 import com.sodre90.cmuxremote.ui.UiState
 import com.sodre90.cmuxremote.ui.YoloBadge
+import com.sodre90.cmuxremote.ui.layout.PlacementSheet
 import com.sodre90.cmuxremote.ui.sessions.ClosePaneDialog
 import com.sodre90.cmuxremote.ui.sessions.actionOutcomeText
 import com.sodre90.cmuxremote.ui.theme.CmuxTheme
@@ -184,6 +185,7 @@ fun TerminalScreen(
     val yoloMode by vm.yoloMode.collectAsState()
     val paneLabel by vm.paneLabel.collectAsState()
     val workspaceId by vm.workspaceId.collectAsState()
+    val placement by vm.placement.state.collectAsState()
     val actionOutcome by vm.actionOutcome.collectAsState()
     var closingPane by rememberSaveable { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
@@ -337,6 +339,7 @@ fun TerminalScreen(
                     }
                     PaneActionsMenu(
                         enabled = workspaceId != null,
+                        onSplit = { vm.openPlacement() },
                         onNewTab = { vm.newTab(onCreated = onOpenSurface) },
                         onShowOnMac = { vm.showOnMac() },
                         onClose = { closingPane = true },
@@ -587,6 +590,15 @@ fun TerminalScreen(
                 vm.closePane(onClosed = onBack)
             },
             onDismiss = { closingPane = false },
+        )
+    }
+
+    placement?.let { state ->
+        PlacementSheet(
+            state = state,
+            initialSurfaceId = vm.surfaceId,
+            onCreate = { target, where -> vm.placement.createPane(target, where, onCreated = onOpenSurface) },
+            onDismiss = { vm.placement.close() },
         )
     }
 
@@ -849,13 +861,26 @@ private fun DeliveryStatusLabelLostInputPreview() {
  * the placement preview exists.
  */
 @Composable
-private fun PaneActionsMenu(enabled: Boolean, onNewTab: () -> Unit, onShowOnMac: () -> Unit, onClose: () -> Unit) {
+private fun PaneActionsMenu(
+    enabled: Boolean,
+    onSplit: () -> Unit,
+    onNewTab: () -> Unit,
+    onShowOnMac: () -> Unit,
+    onClose: () -> Unit,
+) {
     var open by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { open = true }, enabled = enabled) {
             Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.terminal_pane_actions))
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.terminal_split)) },
+                onClick = {
+                    open = false
+                    onSplit()
+                },
+            )
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.terminal_new_tab)) },
                 onClick = {

@@ -20,6 +20,7 @@ import com.sodre90.cmuxremote.model.TerminalDownType
 import com.sodre90.cmuxremote.model.Workspace
 import com.sodre90.cmuxremote.model.mergedOnto
 import com.sodre90.cmuxremote.ui.UiState
+import com.sodre90.cmuxremote.ui.layout.PlacementController
 import com.sodre90.cmuxremote.ui.sessions.ActionOutcome
 import com.sodre90.cmuxremote.ui.sessions.actionFailureOf
 import kotlinx.coroutines.Dispatchers
@@ -129,7 +130,7 @@ internal fun staleMarked(shown: UiState<TerminalContent>): UiState<TerminalConte
 class TerminalViewModel(
     private val bridge: BridgeGateway,
     private val terminalDisplay: TerminalDisplayGateway,
-    private val surfaceId: String,
+    val surfaceId: String,
     private val bridgeNotConfiguredMessage: String,
     private val surfaceGoneMessage: String,
     private val cancelAttentionNotification: (workspaceId: String) -> Unit = {},
@@ -193,6 +194,16 @@ class TerminalViewModel(
 
     fun dismissActionOutcome() {
         _actionOutcome.value = null
+    }
+
+    private var surfaceTitles: Map<String, String> = emptyMap()
+
+    /** The placement sheet behind "Split…", with this pane preselected. */
+    val placement = PlacementController(scope = viewModelScope, client = { bridge.activeBridge() })
+
+    fun openPlacement() {
+        val ws = _workspaceId.value ?: return
+        placement.open(ws, surfaceTitles)
     }
 
     /** Makes the Mac show this pane. */
@@ -290,6 +301,7 @@ class TerminalViewModel(
                 _yoloMode.value = ws?.yoloMode.orEmpty()
                 _paneLabel.value = paneLabelOf(ws, surfaceId)
                 _workspaceId.value = ws?.id
+                surfaceTitles = ws?.terminals.orEmpty().associate { it.id to it.title }
                 ws?.let { cancelAttentionNotification(it.id) }
             } catch (_: Exception) {
                 // Best-effort display only; leave it blank on failure.

@@ -12,6 +12,7 @@ import com.sodre90.cmuxremote.model.Workspace
 import com.sodre90.cmuxremote.ui.UiState
 import com.sodre90.cmuxremote.ui.inbox.isPendingInboxKind
 import com.sodre90.cmuxremote.ui.inbox.isPendingSetChangeSignal
+import com.sodre90.cmuxremote.ui.layout.PlacementController
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -62,6 +63,18 @@ class SessionsViewModel(
 
     fun dismissActionOutcome() {
         _actionOutcome.value = null
+    }
+
+    /** The placement sheet's state and actions; a created pane refetches
+     *  the list so the new one is in it when the terminal comes back. */
+    val placement = PlacementController(
+        scope = viewModelScope,
+        client = { bridge.activeBridge() },
+        afterCreate = { refreshRequests.tryEmit(Unit) },
+    )
+
+    fun openPlacement(ws: Workspace) {
+        placement.open(ws.id, ws.terminals.associate { it.id to it.title })
     }
 
     // True only while a user-initiated refresh (pull gesture or the Refresh

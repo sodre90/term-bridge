@@ -19,8 +19,10 @@ import com.sodre90.cmuxremote.data.e2e.PairedSession
 import com.sodre90.cmuxremote.data.e2e.ReplayRejectedException
 import com.sodre90.cmuxremote.data.e2e.ReplayWindow
 import com.sodre90.cmuxremote.data.e2e.nonce
+import com.sodre90.cmuxremote.model.PanePlacement
 import com.sodre90.cmuxremote.ui.TestViewModelHost
 import com.sodre90.cmuxremote.ui.UiState
+import com.sodre90.cmuxremote.ui.layout.PlacementState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import okhttp3.OkHttpClient
@@ -529,5 +531,107 @@ class SessionsViewModelTest {
         val select = synchronized(seen) { seen.single() }
         assertEquals("/sessions/ws-b/select", select.path)
         assertEquals("{}", select.body.readUtf8())
+    }
+
+    @Test
+    fun newPaneFromTheListLoadsTheLayoutWithTitlesThenCreatesAndReloads() {
+        val lists = AtomicInteger(0)
+        val panes = AtomicInteger(0)
+        val seen = mutableListOf<RecordedRequest>()
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse = when (request.path) {
+                "/sessions" -> {
+                    lists.incrementAndGet()
+                    MockResponse().setBody(twoWorkspaces)
+                }
+                "/sessions/ws-b/layout" -> MockResponse().setBody(
+                    """{"estimated":true,"panes":[{"id":"p-b","x":0,"y":0,"w":1,"h":1,"focused":true,
+                        "surface_ids":["s-b"],"selected_surface_id":"s-b"}]}""",
+                )
+                "/sessions/ws-b/panes" -> {
+                    synchronized(seen) { seen.add(request) }
+                    if (panes.incrementAndGet() == 1) {
+                        MockResponse().setResponseCode(502).setBody("""{"error":"cmux surface.split failed"}""")
+                    } else {
+                        MockResponse().setBody("""{"surface_id":"s-new","pane_id":"p-new"}""")
+                    }
+                }
+                else -> MockResponse().setBody("""{"items":[]}""")
+            }
+        }
+        val vm = loadedViewModel()
+        val listsBefore = lists.get()
+
+        vm.openPlacement((vm.state.value as UiState.Ready).data.single { it.id == "ws-b" })
+
+        waitUntil { vm.placement.state.value is PlacementState.Ready }
+        val ready = vm.placement.state.value as PlacementState.Ready
+        assertEquals(mapOf("s-b" to "B"), ready.titles)
+        assertEquals(true, ready.layout.estimated)
+
+        val opened = AtomicReference<String>()
+        vm.placement.createPane("s-b", PanePlacement.LEFT, onCreated = { opened.set(it) })
+
+        waitUntil { (vm.placement.state.value as? PlacementState.Ready)?.error != null }
+        assertEquals(ActionFailure.OTHER, (vm.placement.state.value as PlacementState.Ready).error?.failure)
+        assertEquals(null, opened.get())
+
+        vm.placement.createPane("s-b", PanePlacement.LEFT, onCreated = { opened.set(it) })
+
+        waitUntil { opened.get() == "s-new" }
+        assertEquals(null, vm.placement.state.value)
+        assertEquals(
+            listOf("""{"surface_id":"s-b","placement":"left"}""", """{"surface_id":"s-b","placement":"left"}"""),
+            synchronized(seen) { seen.map { it.body.readUtf8() } },
+        )
+        waitUntil { lists.get() > listsBefore }
+    }
+
+    @Test
+    fun aSecondTapWhileTheSplitIsInFlightSendsNothing() {
+        val creates = AtomicInteger(0)
+        val createGate = CountDownLatch(1)
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse = when (request.path) {
+                "/sessions" -> MockResponse().setBody(twoWorkspaces)
+                "/sessions/ws-a/layout" -> MockResponse().setBody(
+                    """{"panes":[{"id":"p-a","x":0,"y":0,"w":1,"h":1,
+                        "surface_ids":["s-a"],"selected_surface_id":"s-a"}]}""",
+                )
+                "/sessions/ws-a/panes" -> {
+                    creates.incrementAndGet()
+                    createGate.await(3, TimeUnit.SECONDS)
+                    MockResponse().setBody("""{"surface_id":"s-new","pane_id":"p-new"}""")
+                }
+                else -> MockResponse().setBody("""{"items":[]}""")
+            }
+        }
+        val vm = loadedViewModel()
+        vm.openPlacement((vm.state.value as UiState.Ready).data.first())
+        waitUntil { vm.placement.state.value is PlacementState.Ready }
+
+        val opened = AtomicInteger(0)
+        vm.placement.createPane("s-a", PanePlacement.RIGHT, onCreated = { opened.incrementAndGet() })
+        waitUntil { (vm.placement.state.value as? PlacementState.Ready)?.busy == true }
+        vm.placement.createPane("s-a", PanePlacement.RIGHT, onCreated = { opened.incrementAndGet() })
+        createGate.countDown()
+
+        waitUntil { opened.get() == 1 }
+        assertEquals(1, creates.get())
+        assertEquals(null, vm.placement.state.value)
+    }
+
+    @Test
+    fun aLayoutTheBridgeCannotGiveLeavesTheSheetWithTheReason() {
+        mutationServer { MockResponse().setResponseCode(404).setBody("404 page not found") }
+        val vm = loadedViewModel()
+
+        vm.openPlacement((vm.state.value as UiState.Ready).data.first())
+
+        waitUntil { vm.placement.state.value is PlacementState.Failed }
+        val failed = vm.placement.state.value as PlacementState.Failed
+        assertEquals(ActionFailure.BRIDGE_TOO_OLD, failed.outcome.failure)
+        vm.placement.close()
+        assertEquals(null, vm.placement.state.value)
     }
 }

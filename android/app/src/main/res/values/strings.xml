@@ -28,6 +28,7 @@
     <string name="sessions_new_workspace_path_hint">Absolute path inside your home folder</string>
     <string name="sessions_new_workspace_title_label">Title (optional)</string>
     <string name="sessions_new_workspace_create">Create</string>
+    <string name="sessions_new_pane">New pane…</string>
     <string name="sessions_show_on_mac">Show on Mac</string>
     <string name="sessions_close_workspace">Close workspace…</string>
     <string name="sessions_close_workspace_title">Close this workspace?</string>
@@ -45,6 +46,17 @@
     <string name="action_failed_cwd_not_found">That directory does not exist on the Mac.</string>
     <string name="action_failed_cwd_not_dir">That path is a file, not a directory.</string>
     <string name="action_failed_cwd_outside_home">Only directories inside your home folder can be used.</string>
+    <string name="placement_title">Where should the new pane go?</string>
+    <string name="placement_split_left">Split left</string>
+    <string name="placement_split_right">Split right</string>
+    <string name="placement_split_up">Split up</string>
+    <string name="placement_split_down">Split down</string>
+    <string name="placement_add_tab">Add tab</string>
+    <string name="placement_tab_chip">Tab</string>
+    <string name="placement_new_pane_description">New pane</string>
+    <string name="placement_pane_description">Pane %1$s</string>
+    <string name="placement_estimated_note">Proportions are a guess until the workspace has been shown on the Mac.</string>
+    <string name="placement_no_panes">This workspace has no pane to split.</string>
     <string name="action_failed_other">That did not work: %1$s</string>
     <string name="action_failed_unknown">That did not work.</string>
     <string name="terminal_picker_title">Which terminal?</string>
@@ -165,6 +177,7 @@
     <string name="terminal_paste">Paste</string>
     <string name="terminal_attach">Attach a photo</string>
     <string name="terminal_pane_actions">Pane actions</string>
+    <string name="terminal_split">Split…</string>
     <string name="terminal_new_tab">New tab in this pane</string>
     <string name="terminal_show_on_mac">Show on Mac</string>
     <string name="terminal_close_pane">Close this pane…</string>

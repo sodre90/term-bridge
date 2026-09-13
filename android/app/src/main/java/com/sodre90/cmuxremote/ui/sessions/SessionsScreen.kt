@@ -88,6 +88,7 @@ import com.sodre90.cmuxremote.ui.ErrorState
 import com.sodre90.cmuxremote.ui.PullableCenter
 import com.sodre90.cmuxremote.ui.UiState
 import com.sodre90.cmuxremote.ui.YoloBadge
+import com.sodre90.cmuxremote.ui.layout.PlacementSheet
 import com.sodre90.cmuxremote.ui.terminal.parseColor
 import com.sodre90.cmuxremote.ui.theme.AppColors
 import com.sodre90.cmuxremote.ui.theme.CmuxTheme
@@ -228,6 +229,7 @@ private fun WorkspaceList(vm: SessionsViewModel, workspaces: List<Workspace>, on
     var renamingWorkspace by remember { mutableStateOf<Workspace?>(null) }
     var yoloPickerWorkspace by remember { mutableStateOf<Workspace?>(null) }
     var closingWorkspace by remember { mutableStateOf<Workspace?>(null) }
+    val placement by vm.placement.state.collectAsState()
 
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
@@ -262,6 +264,7 @@ private fun WorkspaceList(vm: SessionsViewModel, workspaces: List<Workspace>, on
                         onOpen = onOpen,
                         onRename = { renamingWorkspace = ws },
                         onYoloMode = { yoloPickerWorkspace = ws },
+                        onNewPane = { vm.openPlacement(ws) },
                         onShowOnMac = { vm.showOnMac(ws.id) },
                         onClose = { closingWorkspace = ws },
                         dragHandle = {
@@ -309,6 +312,15 @@ private fun WorkspaceList(vm: SessionsViewModel, workspaces: List<Workspace>, on
                 vm.setYoloMode(ws.id, mode)
                 yoloPickerWorkspace = null
             },
+        )
+    }
+
+    placement?.let { state ->
+        PlacementSheet(
+            state = state,
+            initialSurfaceId = null,
+            onCreate = { target, where -> vm.placement.createPane(target, where, onCreated = onOpen) },
+            onDismiss = { vm.placement.close() },
         )
     }
 
@@ -464,6 +476,7 @@ private fun WorkspaceCard(
     onOpen: (String) -> Unit,
     onRename: () -> Unit,
     onYoloMode: () -> Unit,
+    onNewPane: () -> Unit,
     onShowOnMac: () -> Unit,
     onClose: () -> Unit,
     dragHandle: @Composable () -> Unit,
@@ -635,6 +648,13 @@ private fun WorkspaceCard(
                                     },
                                 )
                                 DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.sessions_new_pane)) },
+                                    onClick = {
+                                        showActionMenu = false
+                                        onNewPane()
+                                    },
+                                )
+                                DropdownMenuItem(
                                     text = { Text(stringResource(R.string.sessions_show_on_mac)) },
                                     onClick = {
                                         showActionMenu = false
@@ -661,6 +681,7 @@ private fun WorkspaceCard(
                 }
                 if (expanded) {
                     ws.terminals.forEach { pane -> PaneRow(pane, onOpen) }
+                    NewPaneRow(onNewPane)
                 }
             }
         }
@@ -682,6 +703,7 @@ private fun WorkspaceCardPreview() {
             onToggle = {},
             onOpen = {},
             onRename = {},
+            onNewPane = {},
             onShowOnMac = {},
             onClose = {},
             onYoloMode = {},
@@ -711,6 +733,7 @@ private fun WorkspaceCardAttentionPreview() {
             onToggle = {},
             onOpen = {},
             onRename = {},
+            onNewPane = {},
             onShowOnMac = {},
             onClose = {},
             onYoloMode = {},
@@ -759,6 +782,29 @@ fun PaneRow(pane: TerminalPane, onOpen: (String) -> Unit) {
                 color = MaterialTheme.colorScheme.primary,
             )
         }
+    }
+}
+
+@Composable
+private fun NewPaneRow(onNewPane: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth()
+            .clickable(onClick = onNewPane)
+            .padding(start = 28.dp, end = 16.dp, top = 8.dp, bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(
+            Icons.Default.Add,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(18.dp),
+        )
+        Text(
+            text = stringResource(R.string.sessions_new_pane),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.primary,
+        )
     }
 }
 
