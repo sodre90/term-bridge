@@ -12,6 +12,13 @@ every section after it itemizes changes individually. Purely internal refactors
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-09-13
+
+The phone can now change what is on the Mac, not just look at it: attach a
+photo to a pane, open workspaces, split panes with a preview of where the
+new one lands, and close either. The bridge also stops cmux's style-id
+renumbering from making unchanged scrollback look new on every frame.
+
 ### Added
 
 - Attach a photo to a terminal pane from the phone. A Photo button next to
