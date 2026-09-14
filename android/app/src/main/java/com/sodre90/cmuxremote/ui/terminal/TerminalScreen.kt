@@ -12,7 +12,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculateZoom
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -94,6 +93,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.input.pointer.positionChangeIgnoreConsumed
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalConfiguration
@@ -464,11 +464,9 @@ fun TerminalScreen(
                             }
                             // Tapping the terminal is how you start typing -- there's no
                             // separate input box to tap into anymore.
-                            .pointerInput(Unit) {
-                                detectTapGestures {
-                                    focusRequester.requestFocus()
-                                    keyboardController?.show()
-                                }
+                            .onTapWithinSlop {
+                                focusRequester.requestFocus()
+                                keyboardController?.show()
                             }
                     ) {
                         // RenderGridView insets its content by 8.dp on every side; subtract
@@ -981,6 +979,31 @@ private fun ArrowButton(key: CursorKey, applicationCursorKeys: Boolean, onKey: (
  * vertical-dominant -- below that it is still a tap, and horizontal movement
  * still belongs to the scroll.
  */
+/**
+ * A tap that a drag in ANY direction ends. `detectTapGestures` ends one only when
+ * something consumes the movement, and with Wrap on nothing scrolls the grid
+ * horizontally, so a swipe across it still counted as a tap and popped the
+ * keyboard on lift-off (cmux-app-3il). Movement a child consumes (the grid's
+ * scrolls, a pinch) still ends the tap the way it always did.
+ */
+internal fun Modifier.onTapWithinSlop(onTap: () -> Unit): Modifier = pointerInput(onTap) {
+    val slop = viewConfiguration.touchSlop
+    awaitEachGesture {
+        val down = awaitFirstDown()
+        var travel = Offset.Zero
+        while (true) {
+            val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
+            if (change.isConsumed) break
+            travel += change.positionChange()
+            if (travel.getDistance() > slop) break
+            if (!change.pressed) {
+                onTap()
+                break
+            }
+        }
+    }
+}
+
 private fun Modifier.cancelTapOnVerticalDrag(): Modifier = pointerInput(Unit) {
     val slop = viewConfiguration.touchSlop
     awaitEachGesture {
