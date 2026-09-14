@@ -3,9 +3,11 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 
+	"github.com/sodre90/cmux-bridge/internal/host"
 	"github.com/sodre90/cmux-bridge/internal/httpjson"
 	"github.com/sodre90/cmux-bridge/internal/wire"
 )
@@ -179,7 +181,12 @@ func (s *Server) handleFeedReply(w http.ResponseWriter, r *http.Request) {
 		httpjson.Error(w, http.StatusBadRequest, "missing request_id")
 		return
 	}
-	if err := s.host.FeedReply(r.Context(), fr.Kind, fr.RequestID, fr.Params); err != nil {
+	err := s.host.FeedReply(r.Context(), fr.Kind, fr.RequestID, fr.Params)
+	if errors.Is(err, host.ErrUnsupported) {
+		httpjson.Error(w, http.StatusBadRequest, "unsupported on this host")
+		return
+	}
+	if err != nil {
 		httpjson.Error(w, http.StatusBadGateway, "cmux reply failed")
 		return
 	}

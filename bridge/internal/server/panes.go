@@ -47,6 +47,10 @@ func (s *Server) handleCreatePane(w http.ResponseWriter, r *http.Request) {
 		httpjson.Error(w, http.StatusBadRequest, "invalid placement")
 		return
 	}
+	if !isSplit && !s.host.Capabilities().Tabs {
+		httpjson.Error(w, http.StatusBadRequest, "unsupported placement")
+		return
+	}
 	var (
 		created wire.CreatePaneResponse
 		err     error

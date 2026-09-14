@@ -189,6 +189,33 @@ relay or network drops.
 > lives in the GUI session and `KeepAlive` restarts it, but confirm on your
 > machine after install.
 
+## Agent (Linux, tmux)
+
+The same binary fronts a Linux box with `host = "tmux"` in `agent.toml`:
+every tmux window on the server is a workspace, every pane a terminal. The
+agent, the tmux server and whatever runs inside it (Claude Code, a shell)
+must be the **same Unix user** so the agent can reach the tmux socket. There
+is no listening port; the agent dials the relay exactly as the Mac does and
+is a tenant of its own, so the phone pairs with it separately and switches
+between hosts.
+
+1. Build for the box (`GOOS=linux GOARCH=amd64 go build ./cmd/cmux-bridge`
+   cross-compiles cleanly: no cgo) and copy it to `~/bin/cmux-bridge`.
+2. Copy `deploy/agent.linux.example.toml` to `~/.config/cmux-bridge/agent.toml`
+   and fill in the relay URL, token and bootstrap URL as for the Mac.
+3. Install the systemd user unit (see the comments in
+   `deploy/cmux-bridge-agent.service` for the exact commands); enable linger
+   so it runs without a login session. Logs go to `journalctl --user -u
+   cmux-bridge-agent`.
+4. Pair a phone with `cmux-bridge pair-device` on the box, as below.
+
+What differs from cmux, by design: a pane is its own only surface, so there
+is no "add as tab" (the app hides it from the host's advertised
+capabilities); a window a phone is viewing is sized to the phone
+(`resize-window`) and handed back to attached clients a few seconds after the
+phone leaves; the structured Inbox (permission prompts, questions) is not yet
+available on tmux hosts.
+
 ## Agent client certificate
 
 The Mac no longer needs a hand-rolled client cert. The relay generates its own

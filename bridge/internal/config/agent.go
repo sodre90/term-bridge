@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"runtime"
 
 	"github.com/BurntSushi/toml"
 )
@@ -13,7 +14,14 @@ import (
 // serves the cmux handler over the tunnel; it holds no device secrets other
 // than its own e2e identity key.
 type AgentConfig struct {
-	CmuxBin    string `toml:"cmux_bin"`
+	// Host names the terminal backend this agent fronts: "cmux" (the Mac,
+	// the default) or "tmux" (a Linux box, see TmuxBin/TmuxSocket).
+	Host    string `toml:"host"`
+	CmuxBin string `toml:"cmux_bin"`
+	// TmuxBin is the tmux binary for Host = "tmux"; TmuxSocket, when set,
+	// is passed as `tmux -S` for a server on a non-default socket path.
+	TmuxBin    string `toml:"tmux_bin"`
+	TmuxSocket string `toml:"tmux_socket"`
 	RelayURL   string `toml:"relay_url"`
 	ClientCert string `toml:"client_cert"`
 	ClientKey  string `toml:"client_key"`
@@ -84,17 +92,34 @@ type AgentConfig struct {
 	LogFile string `toml:"log_file"`
 }
 
+// Host values.
+const (
+	HostCmux = "cmux"
+	HostTmux = "tmux"
+)
+
 func agentDefaults() AgentConfig {
 	return AgentConfig{
+		Host:            HostCmux,
 		CmuxBin:         "cmux",
+		TmuxBin:         "tmux",
 		IdentityKey:     "~/.config/cmux-bridge/identity.key",
 		SessionStore:    "~/.config/cmux-bridge/sessions.db",
 		YoloStore:       "~/.config/cmux-bridge/yolo.db",
 		DirectAuthStore: "~/.config/cmux-bridge/direct-auth.db",
 		StatusFile:      "~/.config/cmux-bridge/status.json",
 		AttachmentsDir:  "~/.config/cmux-bridge/attachments",
-		LogFile:         "~/Library/Logs/cmux-bridge.log",
+		LogFile:         defaultLogFile(),
 	}
+}
+
+// defaultLogFile is launchd's convention on the Mac; elsewhere the agent
+// logs to stderr for whatever supervises it (journald under systemd).
+func defaultLogFile() string {
+	if runtime.GOOS == "darwin" {
+		return "~/Library/Logs/cmux-bridge.log"
+	}
+	return ""
 }
 
 // LoadAgent reads the agent TOML at path. A missing file yields defaults.
@@ -114,6 +139,17 @@ func LoadAgent(path string) (AgentConfig, error) {
 	if cfg.CmuxBin == "" {
 		cfg.CmuxBin = "cmux"
 	}
+	if cfg.TmuxBin == "" {
+		cfg.TmuxBin = "tmux"
+	}
+	switch cfg.Host {
+	case "":
+		cfg.Host = HostCmux
+	case HostCmux, HostTmux:
+	default:
+		return cfg, fmt.Errorf("agent config %s: host must be %q or %q, not %q", path, HostCmux, HostTmux, cfg.Host)
+	}
+	cfg.TmuxSocket = expandHome(cfg.TmuxSocket)
 	cfg.ClientCert = expandHome(cfg.ClientCert)
 	cfg.ClientKey = expandHome(cfg.ClientKey)
 	cfg.CACert = expandHome(cfg.CACert)

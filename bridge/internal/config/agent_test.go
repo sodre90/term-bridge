@@ -263,3 +263,24 @@ func TestLoadAgentLeavesFCMClientFieldsEmptyWhenAbsent(t *testing.T) {
 		t.Fatalf("absent client fields must stay empty, got %+v", cfg)
 	}
 }
+
+func TestLoadAgentHostSelection(t *testing.T) {
+	cfg, err := LoadAgent(filepath.Join(t.TempDir(), "missing.toml"))
+	if err != nil || cfg.Host != HostCmux || cfg.TmuxBin != "tmux" {
+		t.Fatalf("defaults: host=%q tmux_bin=%q err=%v", cfg.Host, cfg.TmuxBin, err)
+	}
+	path := filepath.Join(t.TempDir(), "agent.toml")
+	if err := os.WriteFile(path, []byte("host = \"tmux\"\ntmux_bin = \"/usr/bin/tmux\"\ntmux_socket = \"~/.tmux-sock\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err = LoadAgent(path)
+	if err != nil || cfg.Host != HostTmux || cfg.TmuxBin != "/usr/bin/tmux" || filepath.Base(cfg.TmuxSocket) != ".tmux-sock" || filepath.IsAbs(cfg.TmuxSocket) == false {
+		t.Fatalf("tmux host: %+v, %v", cfg, err)
+	}
+	if err := os.WriteFile(path, []byte("host = \"screen\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadAgent(path); err == nil {
+		t.Fatal("an unknown host must be refused")
+	}
+}

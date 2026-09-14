@@ -1,0 +1,27 @@
+# systemd user unit for `cmux-bridge agent` on a Linux host (the counterpart
+# of com.sodre90.cmux-bridge.plist on the Mac).
+#
+#   install -Dm644 cmux-bridge-agent.service ~/.config/systemd/user/
+#   loginctl enable-linger "$USER"        # keep user services up without a login session
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now cmux-bridge-agent
+#   journalctl --user -u cmux-bridge-agent -f
+#
+# The agent must run as the same user as the tmux server it fronts and as
+# the agents (Claude Code, ...) running inside it.
+[Unit]
+Description=cmux-bridge agent - serves this host's tmux sessions to the cmux app
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=%h/bin/cmux-bridge agent --config %h/.config/cmux-bridge/agent.toml
+Restart=always
+RestartSec=5
+# The agent logs to stderr on Linux by default; journald keeps it.
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

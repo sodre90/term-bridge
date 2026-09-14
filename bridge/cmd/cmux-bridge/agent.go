@@ -25,11 +25,15 @@ import (
 	"github.com/sodre90/cmux-bridge/internal/cmux"
 	"github.com/sodre90/cmux-bridge/internal/config"
 	"github.com/sodre90/cmux-bridge/internal/e2e"
+	"github.com/sodre90/cmux-bridge/internal/host"
+	"github.com/sodre90/cmux-bridge/internal/host/cmuxhost"
+	"github.com/sodre90/cmux-bridge/internal/host/tmuxhost"
 	"github.com/sodre90/cmux-bridge/internal/logging"
 	"github.com/sodre90/cmux-bridge/internal/metrics"
 	"github.com/sodre90/cmux-bridge/internal/push"
 	"github.com/sodre90/cmux-bridge/internal/server"
 	"github.com/sodre90/cmux-bridge/internal/status"
+	"github.com/sodre90/cmux-bridge/internal/tmux"
 	"github.com/sodre90/cmux-bridge/internal/tunnel"
 	"github.com/sodre90/cmux-bridge/internal/wire"
 	"github.com/sodre90/cmux-bridge/internal/yolo"
@@ -417,6 +421,18 @@ func (l countingListener) Accept() (net.Conn, error) {
 	return conn, err
 }
 
+// buildHost picks the terminal backend agent.toml names. The tmux host's
+// resize janitor runs for the life of ctx.
+func buildHost(ctx context.Context, cfg config.AgentConfig, reached func()) host.Host {
+	if cfg.Host == config.HostTmux {
+		h := tmuxhost.New(&tmux.Client{Bin: cfg.TmuxBin, Socket: cfg.TmuxSocket, OnReached: reached})
+		go h.Run(ctx)
+		slog.Info("agent: host is tmux", "tmux_bin", cfg.TmuxBin, "tmux_socket", cfg.TmuxSocket)
+		return h
+	}
+	return cmuxhost.New(&cmux.Client{Bin: cfg.CmuxBin, FastPath: true, OnReached: reached})
+}
+
 func runAgent(args []string) int {
 	fs := flag.NewFlagSet("agent", flag.ContinueOnError)
 	cfgPath := fs.String("config", defaultAgentConfigPath(), "path to agent.toml")
@@ -466,14 +482,8 @@ func runAgent(args []string) int {
 		}
 	}
 	var lastCmuxReached atomic.Value // time.Time
-	cmuxClient := &cmux.Client{
-		Bin:      cfg.CmuxBin,
-		FastPath: true,
-		OnReached: func() {
-			lastCmuxReached.Store(time.Now())
-		},
-	}
-	srv := server.New(cmuxClient, directStore)
+	reached := func() { lastCmuxReached.Store(time.Now()) }
+	srv := server.NewWithHost(buildHost(ctx, cfg, reached), directStore)
 	sessions, err := e2e.OpenStore(cfg.SessionStore)
 	if err != nil {
 		slog.Error("agent: open session store", "err", err)
