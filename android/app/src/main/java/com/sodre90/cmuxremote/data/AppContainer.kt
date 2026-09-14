@@ -77,6 +77,10 @@ class AppContainer(
             .map { host(it.id) }
     }
 
+    /** One fallback-aware client per paired host, for the push registration
+     *  that has to reach all of them. */
+    fun pairedBridges(): List<FallbackBridgeClient> = pairedHosts().filter { it.isConfigured() }.map { it.bridge }
+
     /** The host every gateway method below reads and writes. A process with no
      *  pairing runs against [HostId.NONE], which has no credentials and so
      *  answers exactly like the old single-host container did before pairing. */
@@ -120,7 +124,7 @@ class AppContainer(
                     hostRegistry.select(hostId)
                     // A pairing may have just delivered the Firebase config this
                     // process concluded at startup it did not have.
-                    if (activatePush(appContext, settings, ::activeBridge)) pushActivations.value++
+                    if (activatePush(appContext, settings, ::pairedBridges)) pushActivations.value++
                 },
             )
         }

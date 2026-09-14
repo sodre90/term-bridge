@@ -14,6 +14,7 @@ import com.sodre90.cmuxremote.MainActivity
 import com.sodre90.cmuxremote.R
 import com.sodre90.cmuxremote.data.AppContainer
 import com.sodre90.cmuxremote.data.ConnectionSlot
+import com.sodre90.cmuxremote.data.HostId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -45,7 +46,7 @@ class CmuxMessagingService : FirebaseMessagingService() {
     // push stays dead until someone opens the app (cmux-app-2cm).
     override fun onNewToken(token: String) {
         val container = (application as? CmuxApp)?.container ?: return
-        FcmTokenRegistrar(container.settings, container::activeBridge).onTokenIssued(token)
+        FcmTokenRegistrar(container.settings, container::pairedBridges).onTokenIssued(token)
         enqueueFcmTokenRegistration(applicationContext)
     }
 
@@ -58,9 +59,15 @@ class CmuxMessagingService : FirebaseMessagingService() {
         val surfaceId = message.data["surface_id"]?.takeIf { it.isNotBlank() }
         val notificationId = attentionNotificationId(workspaceId, surfaceId)
         if (decrypted == null && genericFallbackWouldHideContent(shownTitle(notificationId))) return
-        val (title, body) = decrypted ?: (GENERIC_TITLE to GENERIC_BODY)
-        showNotification(title, body, workspaceId, surfaceId, notificationId)
+        val title = decrypted?.title ?: GENERIC_TITLE
+        val body = decrypted?.body ?: GENERIC_BODY
+        showNotification(title, body, decrypted?.host, workspaceId, surfaceId, notificationId)
     }
+
+    /** What a push said once some host's session opened it, and which host
+     *  that was -- the payload carries a slot but no host, so the deep link
+     *  has to learn the host from the key that authenticated the message. */
+    private class DecryptedPush(val host: HostId, val title: String, val body: String)
 
     /** The title of the notification currently on screen under [notificationId],
      *  or null if nothing is showing there. */
@@ -79,7 +86,7 @@ class CmuxMessagingService : FirebaseMessagingService() {
      * corrupt blob, or an unpaired/wiped local session. The caller falls back to
      * one generic, content-free notification in every such case.
      */
-    private fun decryptContent(container: AppContainer?, data: Map<String, String>): Pair<String, String>? {
+    private fun decryptContent(container: AppContainer?, data: Map<String, String>): DecryptedPush? {
         val container = container ?: return null
         val blobB64 = data["e2e"] ?: run {
             Log.w(TAG, "push carried no e2e payload; sender had no session for this device")
@@ -87,29 +94,26 @@ class CmuxMessagingService : FirebaseMessagingService() {
         }
         val slot = data["slot"]?.let { name -> ConnectionSlot.entries.find { it.name.equals(name, ignoreCase = true) } }
             ?: return null
-        return try {
-            val payload = decryptPushPayload(container.session(slot), container.cipher, blobB64)
-            payload.title to payload.body
-        } catch (e: Exception) {
-            // Exception class only. The payload being decrypted IS the
-            // notification's real content (invariant 5), and the two causes
-            // worth telling apart in the field -- no key material for this slot
-            // yet, versus a blob encrypted for a session this device has since
-            // replaced -- are already distinct exception types.
-            Log.w(TAG, "push payload did not decrypt on slot ${slot.name}: ${e::class.simpleName}")
-            null
+        // Every paired host holds its own session for the slot, and the wrong
+        // one simply fails to authenticate the AEAD -- the receive counter is
+        // only committed on a successful decrypt (validateAndCommitRecvCounter),
+        // so trying the others first costs nothing.
+        for (host in container.pairedHosts()) {
+            val payload = try {
+                decryptPushPayload(host.session(slot), container.cipher, blobB64)
+            } catch (e: Exception) {
+                Log.w(TAG, "push did not decrypt on host ${host.host.value} ${slot.name}: ${e::class.simpleName}")
+                continue
+            }
+            return DecryptedPush(host.host, payload.title, payload.body)
         }
+        return null
     }
 
-    // Stable per-workspace [notificationId] -- the relay pushes once per
-    // NeedsAttention frame with no dedup, and cmux can emit more than one of
-    // those for a prompt that's still pending. Keying on workspaceId means a
-    // repeat push updates the same notification tile instead of stacking a new
-    // one for the same terminal. It is also why [genericFallbackWouldHideContent]
-    // has to exist.
     private fun showNotification(
         title: String,
         body: String,
+        host: HostId?,
         workspaceId: String?,
         surfaceId: String?,
         notificationId: Int,
@@ -119,8 +123,10 @@ class CmuxMessagingService : FirebaseMessagingService() {
             NotificationChannel(CHANNEL_ID, "Agent attention", NotificationManager.IMPORTANCE_HIGH),
         )
 
-        val pending = deepLinkIntent(ACTION_OPEN_PANE, notificationId, workspaceId, surfaceId, openInbox = false)
-        val openInbox = deepLinkIntent(ACTION_OPEN_INBOX, notificationId, workspaceId, surfaceId, openInbox = true)
+        val pending =
+            deepLinkIntent(ACTION_OPEN_PANE, notificationId, host, workspaceId, surfaceId, openInbox = false)
+        val openInbox =
+            deepLinkIntent(ACTION_OPEN_INBOX, notificationId, host, workspaceId, surfaceId, openInbox = true)
 
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_cmux)
@@ -162,6 +168,7 @@ class CmuxMessagingService : FirebaseMessagingService() {
     private fun deepLinkIntent(
         action: String,
         notificationId: Int,
+        host: HostId?,
         workspaceId: String?,
         surfaceId: String?,
         openInbox: Boolean,
@@ -169,6 +176,7 @@ class CmuxMessagingService : FirebaseMessagingService() {
         val intent = Intent(this, MainActivity::class.java).apply {
             this.action = action
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra(MainActivity.EXTRA_HOST_ID, host?.value)
             putExtra(MainActivity.EXTRA_WORKSPACE_ID, workspaceId)
             putExtra(MainActivity.EXTRA_SURFACE_ID, surfaceId)
             putExtra(MainActivity.EXTRA_OPEN_INBOX, openInbox)

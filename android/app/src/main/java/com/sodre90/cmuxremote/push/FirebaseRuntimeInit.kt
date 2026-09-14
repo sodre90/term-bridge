@@ -84,12 +84,12 @@ private const val TAG = "CmuxPush"
 fun activatePush(
     context: Context,
     settings: Settings,
-    activeBridge: () -> FallbackBridgeClient?,
+    pairedBridges: () -> List<FallbackBridgeClient>,
 ): Boolean {
     if (!ensureFirebaseInitialized(context) { settings.fcmClientConfig() }) return false
     return try {
         FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
-            FcmTokenRegistrar(settings, activeBridge).onTokenIssued(token)
+            FcmTokenRegistrar(settings, pairedBridges).onTokenIssued(token)
             enqueueFcmTokenRegistration(context)
         }
         true

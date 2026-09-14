@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -44,6 +45,14 @@ import com.sodre90.cmuxremote.ui.terminal.ImageAttacher
 import com.sodre90.cmuxremote.ui.terminal.TerminalScreen
 import com.sodre90.cmuxremote.ui.terminal.TerminalViewModel
 
+/**
+ * The whole navigation graph is keyed on the selected host: a switch (from the
+ * host menu, a pairing that lands on a new host, or a push from another host)
+ * throws away the back stack and every ViewModel with it. The gateways the
+ * ViewModels hold delegate to whichever host is selected, so one that survived
+ * a switch would carry its old sockets and workspace ids into the new host --
+ * recreating everything is the one boundary that needs no per-screen care.
+ */
 @Composable
 fun CmuxNavHost(
     container: AppContainer,
@@ -62,6 +71,20 @@ fun CmuxNavHost(
     // and silently drop the tap, stranding the user on whatever screen was
     // already open.
     pendingDeepLinkToken: Int = 0,
+) {
+    val selectedHost by container.hostRegistry.selected.collectAsState()
+    key(selectedHost) {
+        HostNavHost(container, pendingWorkspaceId, pendingSurfaceId, pendingOpenInbox, pendingDeepLinkToken)
+    }
+}
+
+@Composable
+private fun HostNavHost(
+    container: AppContainer,
+    pendingWorkspaceId: String?,
+    pendingSurfaceId: String?,
+    pendingOpenInbox: Boolean,
+    pendingDeepLinkToken: Int,
 ) {
     val navController = rememberNavController()
     val configured = container.anyBridgeConfigured()

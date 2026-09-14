@@ -13,18 +13,21 @@ interface PendingTokenStore {
 /** What [FcmTokenRegistrar.registerPending] concluded, and therefore whether the
  *  caller should be asked back. */
 enum class RegistrationAttempt {
-    /** A slot took the token; nothing is outstanding. */
+    /** Every paired host took the token; nothing is outstanding. */
     DONE,
 
     /** Nothing was outstanding to begin with. */
     NOTHING_PENDING,
 
-    /** No slot is configured yet. Pairing registers the token itself (see
+    /** No host is paired yet. Pairing registers the token itself (see
      *  PairingClient), so waiting is right and retrying is not -- there is
      *  nothing to retry against. */
     NOT_CONFIGURED,
 
-    /** The token is still outstanding and the attempt should be repeated. */
+    /** Some host has yet to accept the token and the attempt should be
+     *  repeated. A host that already accepted it is asked again on the retry:
+     *  registration is an upsert on every server, so that costs one request
+     *  and keeps this a single yes/no rather than a per-host ledger. */
     RETRY,
 }
 
@@ -39,12 +42,15 @@ enum class RegistrationAttempt {
  * FCM accepts with a 2xx and delivers nothing to. Push was silently dead until
  * the next launch (cmux-app-2cm, diagnosed live 2026-08-19).
  *
+ * Every paired host gets the token, not just the selected one: each keeps its
+ * own device table and any of them may be the one that later pushes.
+ *
  * The retry itself is WorkManager's job (see [FcmTokenRegistrationWorker]);
  * this type holds the decision so it can be tested without Android.
  */
 class FcmTokenRegistrar(
     private val store: PendingTokenStore,
-    private val activeBridge: () -> FallbackBridgeClient?,
+    private val pairedBridges: () -> List<FallbackBridgeClient>,
 ) {
 
     /** Records [token] as outstanding. Idempotent for a token already pending,
@@ -56,9 +62,9 @@ class FcmTokenRegistrar(
 
     suspend fun registerPending(): RegistrationAttempt {
         val token = store.pendingFcmToken() ?: return RegistrationAttempt.NOTHING_PENDING
-        val bridge = activeBridge() ?: return RegistrationAttempt.NOT_CONFIGURED
+        val bridges = pairedBridges().ifEmpty { return RegistrationAttempt.NOT_CONFIGURED }
         return try {
-            bridge.registerDevice(token)
+            bridges.forEach { it.registerDevice(token) }
             // Only after a slot has accepted it. Clearing on the attempt rather
             // than the acceptance would reintroduce the whole bug.
             store.setPendingFcmToken(null)

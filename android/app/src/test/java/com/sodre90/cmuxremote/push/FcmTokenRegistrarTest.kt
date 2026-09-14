@@ -48,7 +48,7 @@ class FcmTokenRegistrarTest {
     fun anAcceptedTokenStopsBeingPending() = runBlocking {
         server.enqueue(MockResponse().setBody("{}"))
         val store = InMemoryPendingTokenStore()
-        val registrar = FcmTokenRegistrar(store) { bridgeFor(server) }
+        val registrar = FcmTokenRegistrar(store) { listOf(bridgeFor(server)) }
         registrar.onTokenIssued("token-1")
 
         assertEquals(RegistrationAttempt.DONE, registrar.registerPending())
@@ -59,7 +59,7 @@ class FcmTokenRegistrarTest {
     fun aRejectedTokenStaysPendingSoTheRetryHasSomethingToSend() = runBlocking {
         server.enqueue(MockResponse().setResponseCode(503).setBody("""{"error":"agent_offline"}"""))
         val store = InMemoryPendingTokenStore()
-        val registrar = FcmTokenRegistrar(store) { bridgeFor(server) }
+        val registrar = FcmTokenRegistrar(store) { listOf(bridgeFor(server)) }
         registrar.onTokenIssued("token-1")
 
         assertEquals(RegistrationAttempt.RETRY, registrar.registerPending())
@@ -68,16 +68,16 @@ class FcmTokenRegistrarTest {
 
     @Test
     fun withNothingPendingThereIsNothingToDo() = runBlocking {
-        val registrar = FcmTokenRegistrar(InMemoryPendingTokenStore()) { bridgeFor(server) }
+        val registrar = FcmTokenRegistrar(InMemoryPendingTokenStore()) { listOf(bridgeFor(server)) }
 
         assertEquals(RegistrationAttempt.NOTHING_PENDING, registrar.registerPending())
         assertEquals(0, server.requestCount)
     }
 
     @Test
-    fun withNoSlotConfiguredTheTokenIsKeptRatherThanRetriedAgainstNothing() = runBlocking {
+    fun withNoHostPairedTheTokenIsKeptRatherThanRetriedAgainstNothing() = runBlocking {
         val store = InMemoryPendingTokenStore()
-        val registrar = FcmTokenRegistrar(store) { null }
+        val registrar = FcmTokenRegistrar(store) { emptyList() }
         registrar.onTokenIssued("token-1")
 
         assertEquals(RegistrationAttempt.NOT_CONFIGURED, registrar.registerPending())
@@ -87,7 +87,7 @@ class FcmTokenRegistrarTest {
     @Test
     fun aNewerTokenSupersedesOneStillWaitingToBeSent() {
         val store = InMemoryPendingTokenStore()
-        val registrar = FcmTokenRegistrar(store) { null }
+        val registrar = FcmTokenRegistrar(store) { emptyList() }
 
         registrar.onTokenIssued("token-1")
         registrar.onTokenIssued("token-2")
@@ -102,12 +102,38 @@ class FcmTokenRegistrarTest {
         server.enqueue(MockResponse().setResponseCode(503).setBody("""{"error":"agent_offline"}"""))
         server.enqueue(MockResponse().setBody("{}"))
         val store = InMemoryPendingTokenStore()
-        val registrar = FcmTokenRegistrar(store) { bridgeFor(server) }
+        val registrar = FcmTokenRegistrar(store) { listOf(bridgeFor(server)) }
         registrar.onTokenIssued("token-1")
 
         assertEquals(RegistrationAttempt.RETRY, registrar.registerPending())
         assertEquals(RegistrationAttempt.DONE, registrar.registerPending())
         assertNull(store.pendingFcmToken())
         assertEquals(2, server.requestCount)
+    }
+
+    /** Each host keeps its own device table, so a token one of them accepted is
+     *  still outstanding until the other has it too -- and the retry asks both
+     *  again rather than keeping a ledger, since registration is an upsert. */
+    @Test
+    fun theTokenStaysPendingUntilEveryPairedHostHasAcceptedIt() = runBlocking {
+        val second = MockWebServer().also { it.start() }
+        try {
+            server.enqueue(MockResponse().setBody("{}"))
+            second.enqueue(MockResponse().setResponseCode(503).setBody("""{"error":"agent_offline"}"""))
+            server.enqueue(MockResponse().setBody("{}"))
+            second.enqueue(MockResponse().setBody("{}"))
+            val store = InMemoryPendingTokenStore()
+            val registrar = FcmTokenRegistrar(store) { listOf(bridgeFor(server), bridgeFor(second)) }
+            registrar.onTokenIssued("token-1")
+
+            assertEquals(RegistrationAttempt.RETRY, registrar.registerPending())
+            assertEquals("token-1", store.pendingFcmToken())
+            assertEquals(RegistrationAttempt.DONE, registrar.registerPending())
+            assertNull(store.pendingFcmToken())
+            assertEquals(2, server.requestCount)
+            assertEquals(2, second.requestCount)
+        } finally {
+            second.shutdown()
+        }
     }
 }

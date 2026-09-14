@@ -17,6 +17,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.google.firebase.FirebaseApp
 import com.sodre90.cmuxremote.data.AppContainer
+import com.sodre90.cmuxremote.data.HostId
 import com.sodre90.cmuxremote.push.activatePush
 import com.sodre90.cmuxremote.ui.CmuxNavHost
 import com.sodre90.cmuxremote.ui.theme.CmuxTheme
@@ -61,7 +62,7 @@ class MainActivity : ComponentActivity() {
         // read off Settings and applied first. Needs the container, which is
         // why this moved above the permission prompt.
         container = (application as CmuxApp).container
-        activatePush(applicationContext, container.settings, container::activeBridge)
+        activatePush(applicationContext, container.settings, container::pairedBridges)
         requestNotificationsIfPushIsUp()
         promptOnPushActivatedByPairing()
 
@@ -105,6 +106,10 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun applyDeepLink(intent: Intent) {
+        // Before the ids below are published: CmuxNavHost is keyed on the
+        // selected host, so switching first means the navigation that follows
+        // runs inside the new host's screens rather than the old one's.
+        intent.getStringExtra(EXTRA_HOST_ID)?.let { container.selectHost(HostId(it)) }
         pendingWorkspaceId = intent.getStringExtra(EXTRA_WORKSPACE_ID)
         pendingSurfaceId = intent.getStringExtra(EXTRA_SURFACE_ID)
         pendingOpenInbox = intent.getBooleanExtra(EXTRA_OPEN_INBOX, false)
@@ -158,6 +163,7 @@ class MainActivity : ComponentActivity() {
     }
 
     companion object {
+        const val EXTRA_HOST_ID = "cmux.host_id"
         const val EXTRA_WORKSPACE_ID = "cmux.workspace_id"
         const val EXTRA_SURFACE_ID = "cmux.surface_id"
         const val EXTRA_OPEN_INBOX = "cmux.open_inbox"

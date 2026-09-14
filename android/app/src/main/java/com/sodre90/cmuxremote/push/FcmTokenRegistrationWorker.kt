@@ -34,7 +34,7 @@ class FcmTokenRegistrationWorker(
 
     override suspend fun doWork(): Result {
         val container = (applicationContext as? CmuxApp)?.container ?: return Result.success()
-        val registrar = FcmTokenRegistrar(container.settings, container::activeBridge)
+        val registrar = FcmTokenRegistrar(container.settings, container::pairedBridges)
         // The token itself is never logged anywhere below: it is the routing
         // credential for this device's notifications.
         return when (registrar.registerPending()) {
