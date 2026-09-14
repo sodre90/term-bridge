@@ -97,6 +97,12 @@ running cmux, and switches between them.
   (`com.sodre90.cmuxremote` -- a new id would be a new app), the e2e HKDF
   label and the relay CA's name (both bind existing pairings).
 
+### Fixed
+
+- The agent exits promptly on SIGTERM. It used to sit in the relay tunnel's
+  accept loop until systemd aborted it 45 s later (launchd would have killed
+  it the same way), so every restart stalled.
+
 ## [0.8.0] - 2026-09-13
 
 The phone can now change what is on the Mac, not just look at it: attach a
