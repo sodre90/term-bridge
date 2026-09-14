@@ -85,6 +85,9 @@ type Host interface {
 	// any backend call.
 	ValidID(id string) bool
 
+	// ListWorkspaces reports each workspace's CWD in the same canonical
+	// form PendingFeed uses for an item's cwd, because that string equality
+	// is how the server and the app tie a prompt to its workspace.
 	ListWorkspaces(ctx context.Context) ([]wire.Workspace, error)
 	ListPanes(ctx context.Context, workspaceID string) ([]Pane, error)
 
@@ -104,8 +107,10 @@ type Host interface {
 
 	// PendingFeed returns the backend's pending agent prompts as the JSON
 	// body the app reads (items[] with request_id, kind, cwd, question
-	// structure...), with every item's cwd already canonicalised to match
-	// wire.Workspace.CWD.
+	// structure...), with every item's cwd in the form ListWorkspaces
+	// reports wire.Workspace.CWD (cmux reports the two through different
+	// RPCs that disagree on symlinks; tmux's pane_current_path is the
+	// kernel's resolved path and the hook feed reuses it as the item cwd).
 	PendingFeed(ctx context.Context) (json.RawMessage, error)
 	// FeedReply answers the prompt requestID of the given wire kind
 	// ("permissionRequest" | "question" | "exitPlan") with the kind's own

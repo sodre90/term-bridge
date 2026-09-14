@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"path/filepath"
 
 	"github.com/sodre90/term-bridge/internal/httpjson"
 	"github.com/sodre90/term-bridge/internal/wire"
@@ -66,7 +65,7 @@ func (s *Server) resolvePendingPermission(ctx context.Context, workspaceID, mode
 	if !ok || ws.CWD == "" {
 		return false
 	}
-	return s.replyPendingPermissions(ctx, s.listPendingItems(ctx), canonicalPath(ws.CWD), mode)
+	return s.replyPendingPermissions(ctx, s.listPendingItems(ctx), ws.CWD, mode)
 }
 
 // replyPendingPermissions answers every pending permission request running in
@@ -75,18 +74,18 @@ func (s *Server) resolvePendingPermission(ctx context.Context, workspaceID, mode
 // Pending items are keyed by workstream_id -- the agent's own session ID
 // (e.g. "claude-<uuid>"), confirmed live to be a different ID space than
 // cmux's workspace ID -- so correlation is done on cwd instead, the one field
-// both a pending item and a workspace carry in common. Callers must pass a
-// canonicalized wantCWD: mobile.workspace.list's current_directory and
-// feed.list's cwd disagree on symlinks (confirmed live, e.g. "/tmp/foo" vs
-// "/private/tmp/foo"), so comparing raw strings would silently drop every
-// match for a workspace under /tmp, /var, /etc, or any other symlinked path.
+// both a pending item and a workspace carry in common. The host contract
+// (host.Host) is that a workspace's CWD and an item's cwd are already in one
+// canonical form, so they compare as strings here: mobile.workspace.list's
+// current_directory and feed.list's cwd disagree on symlinks (confirmed
+// live, e.g. "/tmp/foo" vs "/private/tmp/foo"), and cmuxhost resolves both.
 func (s *Server) replyPendingPermissions(ctx context.Context, items []pendingFeedItem, wantCWD, mode string) bool {
 	if wantCWD == "" {
 		return false
 	}
 	resolvedAny := false
 	for _, item := range items {
-		if item.Kind != "permissionRequest" || item.Status != "pending" || canonicalPath(item.CWD) != wantCWD {
+		if item.Kind != "permissionRequest" || item.Status != "pending" || item.CWD != wantCWD {
 			continue
 		}
 		if err := s.host.FeedReply(ctx, wire.FeedKindPermissionRequest, item.RequestID,
@@ -95,16 +94,4 @@ func (s *Server) replyPendingPermissions(ctx context.Context, items []pendingFee
 		}
 	}
 	return resolvedAny
-}
-
-// canonicalPath resolves symlinks so two working directories can be compared
-// for equality regardless of how they were reported; a path that no longer
-// exists (or any other resolution failure) is returned unchanged rather than
-// dropped. The host already canonicalises what it hands us; this is the
-// belt to that brace.
-func canonicalPath(p string) string {
-	if resolved, err := filepath.EvalSymlinks(p); err == nil {
-		return resolved
-	}
-	return p
 }

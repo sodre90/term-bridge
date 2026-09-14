@@ -50,13 +50,12 @@ func (s *Server) resolveAttention(ctx context.Context, f *wire.EventFrame) bool 
 	if ws.Title != "" {
 		f.Title = ws.Title
 	}
-	cwd := canonicalPath(ws.CWD)
 	pending := s.listPendingItems(ctx)
-	if mode := s.yoloMode(f.WorkspaceID); mode != "" && s.replyPendingPermissions(ctx, pending, cwd, mode) {
+	if mode := s.yoloMode(f.WorkspaceID); mode != "" && s.replyPendingPermissions(ctx, pending, ws.CWD, mode) {
 		return false
 	}
 	f.Preview = agentStatusLine(ws)
-	if item, ok := newestPendingForCWD(pending, cwd); ok {
+	if item, ok := newestPendingForCWD(pending, ws.CWD); ok {
 		if body := promptBody(item); body != "" {
 			f.Preview = body
 		}

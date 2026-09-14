@@ -80,9 +80,9 @@ func (s *Server) listPendingItems(ctx context.Context) []pendingFeedItem {
 // newestPendingForCWD returns the most recently created pending item running
 // in wantCWD. Pending items are keyed by workstream_id -- the agent's own
 // session ID, a different ID space than cmux's workspace ID -- so cwd is the
-// one field a pending item and a workspace share; callers must canonicalize
-// both sides first (see resolvePendingPermission's doc comment). created_at is
-// cmux's RFC3339 UTC timestamp, so comparing it as a string orders correctly.
+// one field a pending item and a workspace share, compared as the host hands
+// them (see replyPendingPermissions). created_at is an RFC3339 UTC
+// timestamp, so comparing it as a string orders correctly.
 func newestPendingForCWD(items []pendingFeedItem, wantCWD string) (pendingFeedItem, bool) {
 	var newest pendingFeedItem
 	found := false
@@ -90,7 +90,7 @@ func newestPendingForCWD(items []pendingFeedItem, wantCWD string) (pendingFeedIt
 		return newest, false
 	}
 	for _, item := range items {
-		if item.Status != "pending" || canonicalPath(item.CWD) != wantCWD {
+		if item.Status != "pending" || item.CWD != wantCWD {
 			continue
 		}
 		if !found || item.CreatedAt > newest.CreatedAt {
