@@ -26,6 +26,7 @@ import (
 	"github.com/sodre90/term-bridge/internal/config"
 	"github.com/sodre90/term-bridge/internal/e2e"
 	"github.com/sodre90/term-bridge/internal/host"
+	"github.com/sodre90/term-bridge/internal/host/agentfeed"
 	"github.com/sodre90/term-bridge/internal/host/cmuxhost"
 	"github.com/sodre90/term-bridge/internal/host/tmuxhost"
 	"github.com/sodre90/term-bridge/internal/logging"
@@ -422,15 +423,32 @@ func (l countingListener) Accept() (net.Conn, error) {
 }
 
 // buildHost picks the terminal backend agent.toml names. The tmux host's
-// resize janitor runs for the life of ctx.
+// resize janitor runs for the life of ctx, and its Claude Code hook feed
+// listens on the hooks socket when the runtime dir is known.
 func buildHost(ctx context.Context, cfg config.AgentConfig, reached func()) host.Host {
 	if cfg.Host == config.HostTmux {
 		h := tmuxhost.New(&tmux.Client{Bin: cfg.TmuxBin, Socket: cfg.TmuxSocket, OnReached: reached})
 		go h.Run(ctx)
 		slog.Info("agent: host is tmux", "tmux_bin", cfg.TmuxBin, "tmux_socket", cfg.TmuxSocket)
+		enableHookFeed(h)
 		return h
 	}
 	return cmuxhost.New(&cmux.Client{Bin: cfg.CmuxBin, FastPath: true, OnReached: reached})
+}
+
+func enableHookFeed(h *tmuxhost.Host) {
+	path := agentfeed.SocketPath()
+	if path == "" {
+		slog.Warn("agent: XDG_RUNTIME_DIR unset, Claude Code hook feed disabled")
+		return
+	}
+	ln, err := agentfeed.Listen(path)
+	if err != nil {
+		slog.Warn("agent: hooks socket unavailable, Claude Code hook feed disabled", "path", path, "err", err)
+		return
+	}
+	h.EnableFeed(ln)
+	slog.Info("agent: Claude Code hook feed listening", "path", path)
 }
 
 func runAgent(args []string) int {

@@ -15,6 +15,12 @@ func main() {
 		usage()
 		os.Exit(2)
 	}
+	// The hook runs inside every Claude Code session on the box and must
+	// stay silent and exit 0 no matter what -- exit 2 is Claude Code's
+	// "block this tool call" -- so it never goes through the config guard.
+	if os.Args[1] == "hook" {
+		os.Exit(runHook(os.Args[2:]))
+	}
 	if err := cli.RefuseLegacyConfigDir("cmux-bridge", "term-bridge"); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
@@ -37,5 +43,5 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: term-bridge <agent|pair-device|devices|status|version> [flags]")
+	fmt.Fprintln(os.Stderr, "usage: term-bridge <agent|pair-device|devices|status|hook|version> [flags]")
 }
