@@ -269,6 +269,7 @@ func TestReplyTypesTheDigitOfTheMatchingOption(t *testing.T) {
 		{"deny write", writePrompt, "deny", "3"},
 		{"deny without a No option presses Esc", " ❯ 1. Yes\n   2. Yes, and always", "deny", "Escape"},
 		{"always without an always option approves once", " ❯ 1. Yes\n   2. No", "always", "1"},
+		{"always on the 2.1.270 wording", " ❯ 1. Yes\n   2. Yes, allow reading from /tmp from this \n      project\n   3. Yes, and switch to auto mode · auto mode\n   4. No", "always", "2"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -385,6 +386,24 @@ func TestQuestionReplyLimits(t *testing.T) {
 	}
 }
 
+func TestQuestionReplyMatchesALabelTheTUIBrokeAcrossLines(t *testing.T) {
+	fx := newFixture(t)
+	fx.panes.show("%16", " ❯ 1. Keep the current behaviour and \n      document it\n   2. Change it")
+	pre, perm := questionCall("toolu_q", false)
+	fx.hook(t, "%16", pre)
+	fx.hook(t, "%16", perm)
+	err := fx.f.FeedReply(context.Background(), "question", "toolu_q", map[string]any{"selections": []any{"Keep the current behaviour and document it"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := fx.panes.typed(); len(got) != 1 || got[0] != "%16:1" {
+		t.Fatalf("typed %v", got)
+	}
+	if labelIs("Yes", "Yes, please") {
+		t.Fatal("a short head must not match a longer label")
+	}
+}
+
 func TestItemClearsWhenTheHumanAnswersInTheTerminal(t *testing.T) {
 	t.Run("PostToolUse", func(t *testing.T) {
 		fx := newFixture(t)
@@ -413,10 +432,17 @@ func TestItemClearsWhenTheHumanAnswersInTheTerminal(t *testing.T) {
 	})
 	t.Run("prompt left the screen", func(t *testing.T) {
 		fx := newFixture(t)
-		fx.panes.show("%16", bashPrompt)
 		pre, perm := bashCall("toolu_01")
 		fx.hook(t, "%16", pre)
 		fx.hook(t, "%16", perm)
+		if items := fx.pending(t); len(items) != 1 {
+			t.Fatalf("a fresh item must survive a refetch before Claude has drawn its prompt: %+v", items)
+		}
+		fx.panes.show("%16", bashPrompt)
+		time.Sleep(2 * fx.f.replyWait)
+		if items := fx.pending(t); len(items) != 1 {
+			t.Fatalf("items = %+v", items)
+		}
 		fx.panes.show("%16", idleScreen)
 		if items := fx.pending(t); len(items) != 0 {
 			t.Fatalf("items = %+v", items)

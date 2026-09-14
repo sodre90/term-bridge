@@ -96,7 +96,8 @@ func (p paneOps) SendKeys(ctx context.Context, pane, key string) error {
 
 // applyFeedStatus marks the workspaces whose panes the feed knows to be
 // holding a prompt or waiting for input, the way cmux's synthesized
-// preview does for the Mac.
+// preview does for the Mac. A pane no longer running an agent gets no
+// mark whatever the feed remembers: the process is the ground truth.
 func (h *Host) applyFeedStatus(workspaces []wire.Workspace) {
 	if h.feed == nil {
 		return
@@ -107,6 +108,9 @@ func (h *Host) applyFeedStatus(workspaces []wire.Workspace) {
 	}
 	for i := range workspaces {
 		for _, term := range workspaces[i].Terminals {
+			if term.Kind != "agent" {
+				continue
+			}
 			if st, ok := statuses[term.ID]; ok && rank(st.Attention) > rank(workspaces[i].Attention) {
 				workspaces[i].Attention = st.Attention
 				workspaces[i].Preview = st.Preview

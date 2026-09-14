@@ -91,11 +91,12 @@ func permissionChooser(mode string) (picker, error) {
 func isYes(label string) bool { return label == "Yes" }
 func isNo(label string) bool  { return label == "No" }
 
-// isAlways is the option that stops the prompt recurring for this tool;
-// "switch to auto mode" is excluded because it drops every future prompt,
-// which is not what always-allow-this means.
+// isAlways is the option that stops the prompt recurring for this tool:
+// any qualified yes ("Yes, and always allow…" in 2.1.263, "Yes, allow
+// reading from /tmp…" in 2.1.270) except "switch to auto mode", which
+// drops every future prompt and is not what always-allow-this means.
 func isAlways(label string) bool {
-	return strings.HasPrefix(label, "Yes, and ") && !strings.Contains(label, "auto mode")
+	return strings.HasPrefix(label, "Yes,") && !strings.Contains(label, "auto mode")
 }
 
 func keyFor(opts []option, match func(label string) bool) (string, bool) {
@@ -125,6 +126,19 @@ func questionChooser(it *item, params map[string]any) (picker, error) {
 		return nil, fmt.Errorf("empty selection: %w", host.ErrUnsupported)
 	}
 	return func(opts []option) (string, bool) {
-		return keyFor(opts, func(label string) bool { return label == want })
+		return keyFor(opts, func(label string) bool { return labelIs(label, want) })
 	}, nil
+}
+
+// labelIs matches an on-screen label to the option the phone chose. The
+// TUI breaks a long label across lines itself (not by terminal wrapping,
+// so capture-pane -J cannot rejoin it), leaving only its head on the
+// numbered line; a head at least this long is taken as the whole.
+const labelHeadMin = 12
+
+func labelIs(label, want string) bool {
+	if label == want {
+		return true
+	}
+	return len(label) >= labelHeadMin && strings.HasPrefix(want, label)
 }

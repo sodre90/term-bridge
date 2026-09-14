@@ -136,9 +136,10 @@ type Feed struct {
 	panes Panes
 	now   func() time.Time
 	// replyWait bounds how long a reply polls the screen for the prompt
-	// before refusing: Claude draws the prompt only after the
-	// PermissionRequest hook exits, so a YOLO reply issued on the frame
-	// that hook produced can arrive a beat early.
+	// before refusing, and how long a new item is believed without a
+	// screen check: Claude draws the prompt only after the
+	// PermissionRequest hook exits, so a YOLO reply or a refetch issued on
+	// the frame that hook produced arrives a beat early.
 	replyWait, replyPoll time.Duration
 
 	mu    sync.Mutex
@@ -354,14 +355,21 @@ func truncate(s string) string {
 // PendingFeed is the items[] body the app reads, in the shape cmux's
 // feed.list produces. A prompt whose option list has left the screen (the
 // human at the SSH session answered, or pressed Esc) is dropped here, since
-// no hook reports a dismissal.
+// no hook reports a dismissal. A brand-new item is exempt: the frame its
+// PermissionRequest raised makes the app refetch at once, while Claude
+// draws the prompt only after that hook returns (seen live 2026-09-14: the
+// refetch pruned every item before its prompt existed, and the
+// permission_prompt Notification six seconds later re-created it with no
+// tool context).
 func (f *Feed) PendingFeed(ctx context.Context) (json.RawMessage, error) {
 	items := []wireItem{}
 	for _, it := range f.pendingItems() {
-		screen, err := f.panes.Capture(ctx, it.pane)
-		if err != nil || len(optionsOnScreen(screen)) == 0 {
-			f.clear(it)
-			continue
+		if f.now().Sub(it.createdAt) > f.replyWait {
+			screen, err := f.panes.Capture(ctx, it.pane)
+			if err != nil || len(optionsOnScreen(screen)) == 0 {
+				f.clear(it)
+				continue
+			}
 		}
 		items = append(items, toWire(it))
 	}

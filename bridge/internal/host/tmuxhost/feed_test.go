@@ -109,6 +109,13 @@ func TestHookPromptShowsUpAsItemAttentionAndKeystroke(t *testing.T) {
 	if ws[1].Attention != "" || ws[1].Preview != "" {
 		t.Fatalf("workspace 1 = %+v", ws[1])
 	}
+	f.write(t, "panes-all",
+		row(epoch, "main", "@3", "bash", "1", "%9", "1", "bash", "/home/sodre90/prj", "0", "0", "50", "30"),
+	)
+	ws, err = f.h.ListWorkspaces(context.Background())
+	if err != nil || ws[0].Attention != "" {
+		t.Fatalf("a pane back at the shell must carry no agent status: %+v, %v", ws, err)
+	}
 
 	if err := f.h.FeedReply(context.Background(), "permissionRequest", "toolu_01", map[string]any{"mode": "always"}); err != nil {
 		t.Fatal(err)
