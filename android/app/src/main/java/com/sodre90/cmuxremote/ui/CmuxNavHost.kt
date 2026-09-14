@@ -4,6 +4,7 @@ import android.app.NotificationManager
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -29,12 +30,14 @@ import com.sodre90.cmuxremote.BuildConfig
 import com.sodre90.cmuxremote.R
 import com.sodre90.cmuxremote.data.AppContainer
 import com.sodre90.cmuxremote.data.ConnectionSlot
+import com.sodre90.cmuxremote.data.PairedHost
 import com.sodre90.cmuxremote.model.Workspace
 import com.sodre90.cmuxremote.push.attentionNotificationId
 import com.sodre90.cmuxremote.ui.inbox.InboxScreen
 import com.sodre90.cmuxremote.ui.inbox.InboxViewModel
 import com.sodre90.cmuxremote.ui.pairing.ConnectionSettingsScreen
 import com.sodre90.cmuxremote.ui.pairing.ConnectionSettingsViewModel
+import com.sodre90.cmuxremote.ui.pairing.HostConnectionsUi
 import com.sodre90.cmuxremote.ui.pairing.PairingScreen
 import com.sodre90.cmuxremote.ui.pairing.PairingViewModel
 import com.sodre90.cmuxremote.ui.sessions.SessionsScreen
@@ -73,8 +76,12 @@ fun CmuxNavHost(
     pendingDeepLinkToken: Int = 0,
 ) {
     val selectedHost by container.hostRegistry.selected.collectAsState()
+    val hosts by container.hostRegistry.hosts.collectAsState()
+    val hostName = hosts.firstOrNull { it.id == selectedHost }?.name ?: LocalHostName.current
     key(selectedHost) {
-        HostNavHost(container, pendingWorkspaceId, pendingSurfaceId, pendingOpenInbox, pendingDeepLinkToken)
+        CompositionLocalProvider(LocalHostName provides hostName) {
+            HostNavHost(container, pendingWorkspaceId, pendingSurfaceId, pendingOpenInbox, pendingDeepLinkToken)
+        }
     }
 }
 
@@ -190,12 +197,10 @@ private fun HostNavHost(
         popExitTransition = { ExitTransition.None },
     ) {
         composable(Routes.SETTINGS) {
-            val relayConfigured = remember(
-                forgetGeneration
-            ) { container.selectedHost().bridgeConfig(ConnectionSlot.RELAY) != null }
-            val directConfigured = remember(
-                forgetGeneration
-            ) { container.selectedHost().bridgeConfig(ConnectionSlot.DIRECT) != null }
+            val pairedHosts by container.hostRegistry.hosts.collectAsState()
+            val hostCards = pairedHosts.map { host ->
+                key(host.id, forgetGeneration) { hostConnectionsUi(container, host) }
+            }
             val bridgeNotConfigured = stringResource(R.string.error_bridge_not_configured)
             val testPushFailed = stringResource(R.string.error_test_push_failed)
             val testPushVm: ConnectionSettingsViewModel = viewModel(
@@ -206,22 +211,14 @@ private fun HostNavHost(
                 },
             )
             val testPushState by testPushVm.testPushState.collectAsState()
-            val relayCredentialStatus by testPushVm.credentialStatus(ConnectionSlot.RELAY).collectAsState()
-            val directCredentialStatus by testPushVm.credentialStatus(ConnectionSlot.DIRECT).collectAsState()
             var fontZoom by rememberSaveable { mutableFloatStateOf(testPushVm.loadFontZoom()) }
             var wheelScrolling by rememberSaveable { mutableStateOf(testPushVm.loadWheelScrolling()) }
             var wifiPollMs by rememberSaveable { mutableIntStateOf(testPushVm.loadTerminalPollMs(metered = false)) }
             var mobilePollMs by rememberSaveable { mutableIntStateOf(testPushVm.loadTerminalPollMs(metered = true)) }
             val bridgeVersion by testPushVm.bridgeVersion.collectAsState()
-            // Keyed on forgetGeneration so forgetting or re-pairing a slot
-            // re-asks rather than leaving the previous agent's version on
-            // screen -- the active bridge may be a different machine now.
             LaunchedEffect(forgetGeneration) { testPushVm.loadBridgeVersion() }
             ConnectionSettingsScreen(
-                relayConfigured = relayConfigured,
-                directConfigured = directConfigured,
-                relayCredentialStatus = relayCredentialStatus,
-                directCredentialStatus = directCredentialStatus,
+                hosts = hostCards,
                 testPushState = testPushState,
                 fontZoom = fontZoom,
                 wheelScrolling = wheelScrolling,
@@ -230,8 +227,8 @@ private fun HostNavHost(
                 appVersion = BuildConfig.VERSION_NAME,
                 bridgeVersion = bridgeVersion,
                 onPair = { slot -> navController.navigate(Routes.pair(slot)) },
-                onForget = { slot ->
-                    container.forgetSlot(container.selectedHost().host, slot)
+                onForget = { host, slot ->
+                    container.forgetSlot(host, slot)
                     forgetGeneration++
                 },
                 onSendTestPush = testPushVm::sendTestPush,
@@ -243,8 +240,6 @@ private fun HostNavHost(
                     wheelScrolling = it
                     testPushVm.saveWheelScrolling(it)
                 },
-                // Takes effect on the next socket open, not on a pane already
-                // on screen -- the interval is sent when the socket is dialled.
                 onWifiPollMsChange = {
                     wifiPollMs = it
                     testPushVm.saveTerminalPollMs(metered = false, ms = it)
@@ -317,8 +312,16 @@ private fun HostNavHost(
                     }
                 },
             )
+            val pairedHosts by container.hostRegistry.hosts.collectAsState()
+            val selected by container.hostRegistry.selected.collectAsState()
             SessionsScreen(
                 vm = vm,
+                hosts = pairedHosts,
+                selectedHost = pairedHosts.firstOrNull { it.id == selected },
+                onSelectHost = container::selectHost,
+                // The QR decides which host the pairing lands on; the relay
+                // route is the one every host has.
+                onPairAnotherHost = { navController.navigate(Routes.pair(ConnectionSlot.RELAY)) },
                 // The pane's surface id is passed through to /terminal/{id} as
                 // the cmux terminal-surface id (see bridge handleTerminal).
                 // launchSingleTop guards a fast double-tap on the same
@@ -416,6 +419,24 @@ private fun HostNavHost(
  * against a TestNavHostController -- composing the real graph would drag in
  * every screen's ViewModel and its networking (cmux-app-4hc).
  */
+/** Reads one host's slot state where it lives -- that host's own
+ *  [HostConnections][com.sodre90.cmuxremote.data.HostConnections], not the
+ *  selected host's gateway, so a rejected credential on a standby machine is
+ *  visible from here too. */
+@Composable
+private fun hostConnectionsUi(container: AppContainer, host: PairedHost): HostConnectionsUi {
+    val connections = container.host(host.id)
+    val relayStatus by connections.slotCredentialHealth.status(ConnectionSlot.RELAY).collectAsState()
+    val directStatus by connections.slotCredentialHealth.status(ConnectionSlot.DIRECT).collectAsState()
+    return HostConnectionsUi(
+        host = host,
+        relayConfigured = connections.bridgeConfig(ConnectionSlot.RELAY) != null,
+        directConfigured = connections.bridgeConfig(ConnectionSlot.DIRECT) != null,
+        relayCredentialStatus = relayStatus,
+        directCredentialStatus = directStatus,
+    )
+}
+
 internal fun NavController.leaveSettings() {
     if (previousBackStackEntry?.destination?.route == Routes.SESSIONS) {
         popBackStack()

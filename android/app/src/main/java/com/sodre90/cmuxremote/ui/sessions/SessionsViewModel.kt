@@ -8,6 +8,7 @@ import com.sodre90.cmuxremote.data.FallbackBridgeClient
 import com.sodre90.cmuxremote.data.SocketReconnector
 import com.sodre90.cmuxremote.data.WorkspaceOrderGateway
 import com.sodre90.cmuxremote.model.EventFrame
+import com.sodre90.cmuxremote.model.HostInfo
 import com.sodre90.cmuxremote.model.Workspace
 import com.sodre90.cmuxremote.ui.UiState
 import com.sodre90.cmuxremote.ui.inbox.isPendingInboxKind
@@ -48,6 +49,11 @@ class SessionsViewModel(
     // [state] on a background refresh failure -- see [fetchAndApply].
     private val _pendingCount = MutableStateFlow(0)
     val pendingCount: StateFlow<Int> = _pendingCount.asStateFlow()
+
+    /** What the selected host reports about itself -- a cmux host until the
+     *  first fetch answers. The screen hides the Inbox and YOLO controls for a
+     *  host whose feed capability is off (a tmux host has no agent feed). */
+    val hostInfo: StateFlow<HostInfo> = bridge.activeBridge()?.hostInfo ?: MutableStateFlow(HostInfo())
 
     // Surfaced separately from [state] so a failed rename doesn't blow away an
     // already-loaded list (mirrors InboxViewModel's state/actionError split).
@@ -293,6 +299,10 @@ class SessionsViewModel(
     }
 
     private suspend fun refreshPendingCount(client: FallbackBridgeClient) {
+        if (!client.hostInfo.value.capabilities.feed) {
+            _pendingCount.value = 0
+            return
+        }
         _pendingCount.value = runCatching { client.pendingFeed() }
             .getOrNull()
             ?.count { isPendingInboxKind(it.kind) }

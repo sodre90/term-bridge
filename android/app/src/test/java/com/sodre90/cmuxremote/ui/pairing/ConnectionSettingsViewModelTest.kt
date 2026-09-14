@@ -4,12 +4,10 @@ import com.sodre90.cmuxremote.data.BridgeClient
 import com.sodre90.cmuxremote.data.BridgeGateway
 import com.sodre90.cmuxremote.data.ConnectionMonitor
 import com.sodre90.cmuxremote.data.ConnectionSlot
-import com.sodre90.cmuxremote.data.CredentialStatus
 import com.sodre90.cmuxremote.data.DEFAULT_POLL_MS_METERED
 import com.sodre90.cmuxremote.data.DEFAULT_POLL_MS_UNMETERED
 import com.sodre90.cmuxremote.data.EventsSocket
 import com.sodre90.cmuxremote.data.FallbackBridgeClient
-import com.sodre90.cmuxremote.data.RegistrationOutcome
 import com.sodre90.cmuxremote.data.RelayHealth
 import com.sodre90.cmuxremote.data.SlotCredentialHealth
 import com.sodre90.cmuxremote.data.SlotCredentials
@@ -159,20 +157,6 @@ class ConnectionSettingsViewModelTest {
 
         assertEquals(TestPushUiState.Sending, vm.testPushState.value)
         waitUntil { vm.testPushState.value !is TestPushUiState.Sending }
-    }
-
-    /** The Connections screen has to be able to show a rejected standby while
-     *  the other slot is still serving -- per slot, and never conflated. */
-    @Test
-    fun credentialStatusIsExposedPerSlot() {
-        val gateway = FakeTestPushBridgeGateway(null)
-        val vm = testPushViewModel(gateway)
-
-        gateway.credentialHealth.record(ConnectionSlot.RELAY, RegistrationOutcome.ACCEPTED)
-        gateway.credentialHealth.record(ConnectionSlot.DIRECT, RegistrationOutcome.REJECTED)
-
-        assertEquals(CredentialStatus.LIVE, vm.credentialStatus(ConnectionSlot.RELAY).value)
-        assertEquals(CredentialStatus.REJECTED, vm.credentialStatus(ConnectionSlot.DIRECT).value)
     }
 
     @Test

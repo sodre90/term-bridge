@@ -26,6 +26,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
@@ -72,6 +74,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
@@ -79,12 +82,16 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.sodre90.cmuxremote.R
+import com.sodre90.cmuxremote.data.HostId
+import com.sodre90.cmuxremote.data.PairedHost
 import com.sodre90.cmuxremote.model.Attention
+import com.sodre90.cmuxremote.model.HostKind
 import com.sodre90.cmuxremote.model.TerminalPane
 import com.sodre90.cmuxremote.model.Workspace
 import com.sodre90.cmuxremote.model.YoloMode
 import com.sodre90.cmuxremote.ui.ConnectionStatusStrip
 import com.sodre90.cmuxremote.ui.ErrorState
+import com.sodre90.cmuxremote.ui.LocalHostName
 import com.sodre90.cmuxremote.ui.PullableCenter
 import com.sodre90.cmuxremote.ui.UiState
 import com.sodre90.cmuxremote.ui.YoloBadge
@@ -100,12 +107,18 @@ import sh.calvin.reorderable.rememberReorderableLazyListState
 @Composable
 fun SessionsScreen(
     vm: SessionsViewModel,
+    hosts: List<PairedHost>,
+    selectedHost: PairedHost?,
+    onSelectHost: (HostId) -> Unit,
+    onPairAnotherHost: () -> Unit,
     onOpenTerminal: (String) -> Unit,
     onOpenInbox: () -> Unit,
     onSettings: () -> Unit,
 ) {
     val state by vm.state.collectAsState()
     val pendingCount by vm.pendingCount.collectAsState()
+    val hostInfo by vm.hostInfo.collectAsState()
+    val feed = hostInfo.capabilities.feed
     val actionOutcome by vm.actionOutcome.collectAsState()
     val actionError by vm.actionError.collectAsState()
     var creatingWorkspace by rememberSaveable { mutableStateOf(false) }
@@ -126,12 +139,23 @@ fun SessionsScreen(
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.sessions_title)) },
+                title = {
+                    HostTitle(
+                        hosts = hosts,
+                        selected = selectedHost,
+                        onSelectHost = onSelectHost,
+                        onPairAnotherHost = onPairAnotherHost,
+                    )
+                },
                 actions = {
-                    BadgedBox(
-                        badge = { if (pendingCount > 0) Badge { Text(pendingCount.toString()) } },
-                    ) {
-                        TextButton(onClick = onOpenInbox) { Text(stringResource(R.string.sessions_inbox_button)) }
+                    // A host without an agent feed (tmux) has nothing an Inbox
+                    // could show, so the button would only ever open an empty list.
+                    if (feed) {
+                        BadgedBox(
+                            badge = { if (pendingCount > 0) Badge { Text(pendingCount.toString()) } },
+                        ) {
+                            TextButton(onClick = onOpenInbox) { Text(stringResource(R.string.sessions_inbox_button)) }
+                        }
                     }
                     // Icons, not labels: three text actions left so little room that
                     // "cmux sessions" wrapped to two lines on a 360dp phone, so the
@@ -171,7 +195,7 @@ fun SessionsScreen(
                     is UiState.Error -> PullableCenter {
                         ErrorState(rawMessage = s.message, onRetry = { vm.refresh() })
                     }
-                    is UiState.Ready -> WorkspaceList(vm, s.data, onOpenTerminal)
+                    is UiState.Ready -> WorkspaceList(vm, s.data, feed, onOpenTerminal)
                 }
             }
         }
@@ -201,7 +225,7 @@ private val ExpandedMapSaver = mapSaver(
 )
 
 @Composable
-private fun WorkspaceList(vm: SessionsViewModel, workspaces: List<Workspace>, onOpen: (String) -> Unit) {
+private fun WorkspaceList(vm: SessionsViewModel, workspaces: List<Workspace>, feed: Boolean, onOpen: (String) -> Unit) {
     if (workspaces.isEmpty()) {
         PullableCenter { Text(stringResource(R.string.sessions_empty)) }
         return
@@ -263,7 +287,7 @@ private fun WorkspaceList(vm: SessionsViewModel, workspaces: List<Workspace>, on
                         onToggle = { expanded[ws.id] = !(expanded[ws.id] ?: false) },
                         onOpen = onOpen,
                         onRename = { renamingWorkspace = ws },
-                        onYoloMode = { yoloPickerWorkspace = ws },
+                        onYoloMode = if (feed) ({ yoloPickerWorkspace = ws }) else null,
                         onNewPane = { vm.openPlacement(ws) },
                         onShowOnMac = { vm.showOnMac(ws.id) },
                         onClose = { closingWorkspace = ws },
@@ -335,6 +359,65 @@ private fun WorkspaceList(vm: SessionsViewModel, workspaces: List<Workspace>, on
         )
     }
 }
+
+/**
+ * The selected host's name as the title, opening the host menu: every paired
+ * host with a check on the current one, then "Pair another host". Hosts are
+ * listed by name with their kind, since two machines can easily share a relay
+ * hostname placeholder until their first fetch names them.
+ */
+@Composable
+private fun HostTitle(
+    hosts: List<PairedHost>,
+    selected: PairedHost?,
+    onSelectHost: (HostId) -> Unit,
+    onPairAnotherHost: () -> Unit,
+) {
+    var open by remember { mutableStateOf(false) }
+    val menuDescription = stringResource(R.string.sessions_host_menu_description)
+    Box {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.clickable { open = true }.semantics { contentDescription = menuDescription },
+        ) {
+            Text(
+                selected?.name ?: stringResource(R.string.sessions_title),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false),
+            )
+            Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            hosts.forEach { host ->
+                DropdownMenuItem(
+                    text = { Text(host.name) },
+                    trailingIcon = { KindBadge(hostKindLabel(host.kind)) },
+                    leadingIcon = {
+                        if (host.id == selected?.id) Icon(Icons.Default.Check, contentDescription = null)
+                    },
+                    onClick = {
+                        open = false
+                        if (host.id != selected?.id) onSelectHost(host.id)
+                    },
+                )
+            }
+            HorizontalDivider()
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.sessions_pair_another_host)) },
+                onClick = {
+                    open = false
+                    onPairAnotherHost()
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun hostKindLabel(kind: String): String = stringResource(
+    if (kind == HostKind.TMUX) R.string.host_kind_tmux else R.string.host_kind_cmux,
+)
 
 @Composable
 private fun RenameDialog(initial: String, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
@@ -475,7 +558,9 @@ private fun WorkspaceCard(
     onToggle: () -> Unit,
     onOpen: (String) -> Unit,
     onRename: () -> Unit,
-    onYoloMode: () -> Unit,
+    /** Null on a host without an agent feed: YOLO mode drives the agent's
+     *  permission prompts, which such a host never surfaces. */
+    onYoloMode: (() -> Unit)?,
     onNewPane: () -> Unit,
     onShowOnMac: () -> Unit,
     onClose: () -> Unit,
@@ -640,13 +725,15 @@ private fun WorkspaceCard(
                                         onRename()
                                     },
                                 )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.yolo_mode_menu_item)) },
-                                    onClick = {
-                                        showActionMenu = false
-                                        onYoloMode()
-                                    },
-                                )
+                                if (onYoloMode != null) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.yolo_mode_menu_item)) },
+                                        onClick = {
+                                            showActionMenu = false
+                                            onYoloMode()
+                                        },
+                                    )
+                                }
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.sessions_new_pane)) },
                                     onClick = {
@@ -655,7 +742,9 @@ private fun WorkspaceCard(
                                     },
                                 )
                                 DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.sessions_show_on_mac)) },
+                                    text = {
+                                        Text(stringResource(R.string.sessions_show_on_mac, LocalHostName.current))
+                                    },
                                     onClick = {
                                         showActionMenu = false
                                         onShowOnMac()

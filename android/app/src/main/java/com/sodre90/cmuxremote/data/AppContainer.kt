@@ -63,7 +63,9 @@ class AppContainer(
             e2ePrefs = e2ePrefs,
             cipher = cipher,
             terminalPollMs = { terminalDisplayStore.loadTerminalPollMs(networkCost.isMetered()) },
-            onNewRejection = { slot -> showCredentialRejectedNotification(appContext, slot) },
+            onNewRejection = { slot ->
+                showCredentialRejectedNotification(appContext, hostRegistry.host(id)?.name ?: id.value, slot)
+            },
             onHostInfo = { info -> hostRegistry.describe(id, info.name, info.kind) },
         )
     }

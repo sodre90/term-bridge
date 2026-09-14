@@ -42,7 +42,11 @@ import androidx.compose.ui.unit.dp
 import com.sodre90.cmuxremote.R
 import com.sodre90.cmuxremote.data.ConnectionSlot
 import com.sodre90.cmuxremote.data.CredentialStatus
+import com.sodre90.cmuxremote.data.HostId
+import com.sodre90.cmuxremote.data.PairedHost
 import com.sodre90.cmuxremote.data.TERMINAL_POLL_CHOICES
+import com.sodre90.cmuxremote.model.HostKind
+import com.sodre90.cmuxremote.ui.sessions.KindBadge
 import com.sodre90.cmuxremote.ui.terminal.MAX_ZOOM
 import com.sodre90.cmuxremote.ui.terminal.MIN_ZOOM
 import com.sodre90.cmuxremote.ui.terminal.ZOOM_STEP
@@ -51,18 +55,28 @@ import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.roundToInt
 
-/** Replaces the old single-pairing Settings screen: shows both
- *  [ConnectionSlot]s' paired/unpaired status side by side, each with its
- *  own (re)pair and forget action, so the user can see at a glance whether
- *  they have the automatic-fallback benefit (both paired) or just one
- *  transport. */
+/** One paired host's two [ConnectionSlot]s as the Connections screen shows
+ *  them: whether this phone holds credentials for each, and what that slot's
+ *  server last said about them. */
+data class HostConnectionsUi(
+    val host: PairedHost,
+    val relayConfigured: Boolean,
+    val directConfigured: Boolean,
+    val relayCredentialStatus: CredentialStatus,
+    val directCredentialStatus: CredentialStatus,
+)
+
+/** Every paired host with both of its [ConnectionSlot]s' paired/unpaired
+ *  status, each with its own (re)pair and forget action, so the user can see
+ *  at a glance whether a host has the automatic-fallback benefit (both
+ *  paired) or just one transport -- followed by the way to add a host. Before
+ *  the first pairing it shows the two empty slots and the first-run intro
+ *  instead. Which host a pairing lands on is decided by the QR it scans, so
+ *  [onPair] names only the slot. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConnectionSettingsScreen(
-    relayConfigured: Boolean,
-    directConfigured: Boolean,
-    relayCredentialStatus: CredentialStatus,
-    directCredentialStatus: CredentialStatus,
+    hosts: List<HostConnectionsUi>,
     testPushState: TestPushUiState,
     fontZoom: Float,
     wheelScrolling: Boolean,
@@ -71,7 +85,7 @@ fun ConnectionSettingsScreen(
     appVersion: String,
     bridgeVersion: BridgeVersionUiState,
     onPair: (ConnectionSlot) -> Unit,
-    onForget: (ConnectionSlot) -> Unit,
+    onForget: (HostId, ConnectionSlot) -> Unit,
     onSendTestPush: () -> Unit,
     onFontZoomChange: (Float) -> Unit,
     onWheelScrollingChange: (Boolean) -> Unit,
@@ -79,10 +93,10 @@ fun ConnectionSettingsScreen(
     onMobilePollMsChange: (Int) -> Unit,
     onDone: () -> Unit,
 ) {
-    var forgetTarget by remember { mutableStateOf<ConnectionSlot?>(null) }
+    var forgetTarget by remember { mutableStateOf<Pair<HostId, ConnectionSlot>?>(null) }
     val relayLabel = stringResource(R.string.connection_slot_relay)
     val directLabel = stringResource(R.string.connection_slot_direct)
-    val paired = relayConfigured || directConfigured
+    val paired = hosts.isNotEmpty()
     Scaffold(
         topBar = {
             TopAppBar(
@@ -111,25 +125,29 @@ fun ConnectionSettingsScreen(
         ) {
             if (!paired) {
                 FirstRunIntro()
+                SlotRows(
+                    relayConfigured = false,
+                    directConfigured = false,
+                    relayCredentialStatus = CredentialStatus.UNKNOWN,
+                    directCredentialStatus = CredentialStatus.UNKNOWN,
+                    onPair = onPair,
+                    onForget = {},
+                )
             }
-            ConnectionRow(
-                label = relayLabel,
-                description = stringResource(R.string.connection_relay_description),
-                configured = relayConfigured,
-                credentialStatus = relayCredentialStatus,
-                recoveryHint = stringResource(R.string.connection_recovery_relay),
-                onPair = { onPair(ConnectionSlot.RELAY) },
-                onForget = { forgetTarget = ConnectionSlot.RELAY },
-            )
-            ConnectionRow(
-                label = directLabel,
-                description = stringResource(R.string.connection_direct_description),
-                configured = directConfigured,
-                credentialStatus = directCredentialStatus,
-                recoveryHint = stringResource(R.string.connection_recovery_direct),
-                onPair = { onPair(ConnectionSlot.DIRECT) },
-                onForget = { forgetTarget = ConnectionSlot.DIRECT },
-            )
+            hosts.forEach { ui ->
+                HostHeader(ui.host)
+                SlotRows(
+                    relayConfigured = ui.relayConfigured,
+                    directConfigured = ui.directConfigured,
+                    relayCredentialStatus = ui.relayCredentialStatus,
+                    directCredentialStatus = ui.directCredentialStatus,
+                    onPair = onPair,
+                    onForget = { slot -> forgetTarget = ui.host.id to slot },
+                )
+            }
+            if (paired) {
+                PairAnotherHostRow(onPair = { onPair(ConnectionSlot.RELAY) })
+            }
             FontSizeRow(zoom = fontZoom, onZoomChange = onFontZoomChange)
             WheelScrollingRow(enabled = wheelScrolling, onEnabledChange = onWheelScrollingChange)
             TerminalPollRow(
@@ -144,15 +162,71 @@ fun ConnectionSettingsScreen(
             AboutRow(appVersion = appVersion, bridgeVersion = bridgeVersion)
         }
     }
-    forgetTarget?.let { slot ->
+    forgetTarget?.let { (host, slot) ->
         ForgetConnectionDialog(
             slotLabel = if (slot == ConnectionSlot.RELAY) relayLabel else directLabel,
             onDismiss = { forgetTarget = null },
             onConfirm = {
-                onForget(slot)
+                onForget(host, slot)
                 forgetTarget = null
             },
         )
+    }
+}
+
+@Composable
+private fun HostHeader(host: PairedHost) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(host.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+        KindBadge(
+            stringResource(if (host.kind == HostKind.TMUX) R.string.host_kind_tmux else R.string.host_kind_cmux),
+        )
+    }
+}
+
+@Composable
+private fun SlotRows(
+    relayConfigured: Boolean,
+    directConfigured: Boolean,
+    relayCredentialStatus: CredentialStatus,
+    directCredentialStatus: CredentialStatus,
+    onPair: (ConnectionSlot) -> Unit,
+    onForget: (ConnectionSlot) -> Unit,
+) {
+    ConnectionRow(
+        label = stringResource(R.string.connection_slot_relay),
+        description = stringResource(R.string.connection_relay_description),
+        configured = relayConfigured,
+        credentialStatus = relayCredentialStatus,
+        recoveryHint = stringResource(R.string.connection_recovery_relay),
+        onPair = { onPair(ConnectionSlot.RELAY) },
+        onForget = { onForget(ConnectionSlot.RELAY) },
+    )
+    ConnectionRow(
+        label = stringResource(R.string.connection_slot_direct),
+        description = stringResource(R.string.connection_direct_description),
+        configured = directConfigured,
+        credentialStatus = directCredentialStatus,
+        recoveryHint = stringResource(R.string.connection_recovery_direct),
+        onPair = { onPair(ConnectionSlot.DIRECT) },
+        onForget = { onForget(ConnectionSlot.DIRECT) },
+    )
+}
+
+@Composable
+private fun PairAnotherHostRow(onPair: () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(R.string.connections_pair_another_host))
+            Text(
+                stringResource(R.string.connections_pair_another_host_help),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedButton(onClick = onPair, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.action_pair))
+            }
+        }
     }
 }
 
@@ -218,7 +292,7 @@ private fun ConnectionRowPreview() {
     CmuxTheme {
         ConnectionRow(
             label = "Relay",
-            description = "Reaches your Mac from anywhere, via the home server.",
+            description = "Reaches the host from anywhere, via the home server.",
             configured = false,
             credentialStatus = CredentialStatus.UNKNOWN,
             recoveryHint = "",
@@ -234,7 +308,7 @@ private fun ConnectionRowPairedPreview() {
     CmuxTheme {
         ConnectionRow(
             label = "Tailscale (direct)",
-            description = "Reaches your Mac directly over your tailnet.",
+            description = "Reaches the host directly over your tailnet.",
             configured = true,
             credentialStatus = CredentialStatus.LIVE,
             recoveryHint = "",
@@ -250,10 +324,10 @@ private fun ConnectionRowRejectedPreview() {
     CmuxTheme {
         ConnectionRow(
             label = "Tailscale (direct)",
-            description = "Reaches your Mac directly over your tailnet.",
+            description = "Reaches the host directly over your tailnet.",
             configured = true,
             credentialStatus = CredentialStatus.REJECTED,
-            recoveryHint = "Run `cmux-bridge pair-device -direct` on the Mac, then tap Re-pair.",
+            recoveryHint = "Run `cmux-bridge pair-device -direct` there, then tap Re-pair.",
             onPair = {},
             onForget = {},
         )

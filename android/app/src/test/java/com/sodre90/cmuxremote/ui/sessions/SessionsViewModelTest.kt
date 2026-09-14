@@ -412,6 +412,38 @@ class SessionsViewModelTest {
         assertEquals(1, openCount.get())
     }
 
+    /** A tmux host has no agent feed, so the badge count must not cost a
+     *  /feed/pending round trip per refresh -- and must read zero, not stale. */
+    @Test
+    fun aHostWithoutAFeedIsNeverAskedForPendingItems() {
+        val feedRequests = AtomicInteger(0)
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse = when (request.path) {
+                "/sessions" -> MockResponse().setBody(
+                    """{"workspaces":[],
+                        "host":{"name":"home-server","kind":"tmux","capabilities":{"tabs":false,"feed":false}}}""",
+                )
+                else -> {
+                    feedRequests.incrementAndGet()
+                    MockResponse().setBody("""{"items":[{"id":"f1","kind":"question"}]}""")
+                }
+            }
+        }
+        val gw = FakeSessionsBridgeGateway()
+        gw.bridge = bridgeFor(server)
+        val vm = sessionsViewModel(gw, orderGateway)
+        waitUntil { vm.state.value is UiState.Ready }
+        // A second, user-driven fetch: init's refresh() runs the badge refetch
+        // after the state flips to Ready, so only isRefreshing brackets it.
+        vm.userRefresh()
+        waitUntil { server.requestCount >= 2 }
+        waitUntil { !vm.isRefreshing.value }
+
+        assertEquals(false, vm.hostInfo.value.capabilities.feed)
+        assertEquals(0, vm.pendingCount.value)
+        assertEquals(0, feedRequests.get())
+    }
+
     @Test
     fun sortByAttentionReadsAndWritesThroughTheOrderGateway() {
         val vm = sessionsViewModel(FakeSessionsBridgeGateway(), orderGateway)

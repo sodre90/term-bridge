@@ -11,8 +11,8 @@ import com.sodre90.cmuxremote.R
 import com.sodre90.cmuxremote.data.ConnectionSlot
 
 /**
- * Tells the user that [slot]'s server no longer recognises this device, while
- * the other slot is (usually) still serving -- which is the only useful moment
+ * Tells the user that [slot]'s server on [hostName] no longer recognises this
+ * device, while the other slot is (usually) still serving -- which is the only useful moment
  * to say so. A banner that appears once you are already locked out is worth
  * nothing; that state is what this exists to prevent.
  *
@@ -23,7 +23,7 @@ import com.sodre90.cmuxremote.data.ConnectionSlot
  * because that channel otherwise only comes into existence once a push has
  * arrived -- which, on a phone whose credentials are failing, it may not have.
  */
-fun showCredentialRejectedNotification(context: Context, slot: ConnectionSlot) {
+fun showCredentialRejectedNotification(context: Context, hostName: String, slot: ConnectionSlot) {
     val nm = context.getSystemService(NotificationManager::class.java) ?: return
     nm.createNotificationChannel(
         NotificationChannel(
@@ -44,7 +44,7 @@ fun showCredentialRejectedNotification(context: Context, slot: ConnectionSlot) {
         },
     )
 
-    val notificationId = credentialRejectedNotificationId(slot)
+    val notificationId = credentialRejectedNotificationId(hostName, slot)
     val pending = PendingIntent.getActivity(
         context,
         notificationId,
@@ -58,7 +58,7 @@ fun showCredentialRejectedNotification(context: Context, slot: ConnectionSlot) {
         notificationId,
         NotificationCompat.Builder(context, CmuxMessagingService.CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
-            .setContentTitle(context.getString(R.string.credential_rejected_title, slotLabel))
+            .setContentTitle(context.getString(R.string.credential_rejected_title, slotLabel, hostName))
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -71,5 +71,5 @@ fun showCredentialRejectedNotification(context: Context, slot: ConnectionSlot) {
 /** Stable per slot, and disjoint from [attentionNotificationId]'s workspace
  *  hashes, so a repeat for the same slot replaces its own tile instead of
  *  stacking or displacing an attention notification. */
-private fun credentialRejectedNotificationId(slot: ConnectionSlot): Int =
-    "credential_rejected_${slot.name}".hashCode()
+private fun credentialRejectedNotificationId(hostName: String, slot: ConnectionSlot): Int =
+    "credential_rejected_${hostName}_${slot.name}".hashCode()

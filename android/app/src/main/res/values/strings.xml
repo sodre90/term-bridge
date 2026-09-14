@@ -15,6 +15,10 @@
     <!-- Sessions screen -->
     <string name="sessions_title">cmux sessions</string>
     <string name="sessions_inbox_button">Inbox</string>
+    <string name="sessions_host_menu_description">Switch host</string>
+    <string name="sessions_pair_another_host">Pair another host…</string>
+    <string name="host_kind_tmux">tmux</string>
+    <string name="host_kind_cmux">cmux</string>
     <string name="sessions_settings_button">Connections</string>
     <string name="sessions_empty">No sessions</string>
     <string name="sessions_waiting_first_label">Waiting first</string>
@@ -24,26 +28,26 @@
     <string name="sessions_new_workspace">New workspace</string>
     <string name="sessions_new_workspace_recent">Directories in use</string>
     <string name="sessions_new_workspace_used_by">Used by %1$s</string>
-    <string name="sessions_new_workspace_path_label">Directory on the Mac</string>
+    <string name="sessions_new_workspace_path_label">Directory on %1$s</string>
     <string name="sessions_new_workspace_path_hint">Absolute path inside your home folder</string>
     <string name="sessions_new_workspace_title_label">Title (optional)</string>
     <string name="sessions_new_workspace_create">Create</string>
     <string name="sessions_new_pane">New pane…</string>
-    <string name="sessions_show_on_mac">Show on Mac</string>
+    <string name="sessions_show_on_mac">Show on %1$s</string>
     <string name="sessions_close_workspace">Close workspace…</string>
     <string name="sessions_close_workspace_title">Close this workspace?</string>
     <plurals name="sessions_close_workspace_panes">
-        <item quantity="one">%1$s and its one pane will be closed on the Mac.</item>
-        <item quantity="other">%1$s and its %2$d panes will be closed on the Mac.</item>
+        <item quantity="one">%1$s and its one pane will be closed on %3$s.</item>
+        <item quantity="other">%1$s and its %2$d panes will be closed on %3$s.</item>
     </plurals>
     <string name="sessions_close_workspace_attention">An agent here is waiting for an answer.</string>
     <string name="sessions_close_workspace_yolo">YOLO mode is on here.</string>
     <string name="action_close_workspace">Close workspace</string>
-    <string name="action_outcome_shown_on_mac">Shown on the Mac</string>
+    <string name="action_outcome_shown_on_mac">Shown on %1$s</string>
     <string name="action_outcome_workspace_closed">Workspace closed</string>
-    <string name="action_failed_bridge_too_old">The bridge on the Mac is too old for this. Update it first.</string>
+    <string name="action_failed_bridge_too_old">The bridge on the host is too old for this. Update it first.</string>
     <string name="action_failed_cwd_not_absolute">Enter an absolute path, starting with /.</string>
-    <string name="action_failed_cwd_not_found">That directory does not exist on the Mac.</string>
+    <string name="action_failed_cwd_not_found">That directory does not exist on the host.</string>
     <string name="action_failed_cwd_not_dir">That path is a file, not a directory.</string>
     <string name="action_failed_cwd_outside_home">Only directories inside your home folder can be used.</string>
     <string name="placement_title">Where should the new pane go?</string>
@@ -55,7 +59,7 @@
     <string name="placement_tab_chip">Tab</string>
     <string name="placement_new_pane_description">New pane</string>
     <string name="placement_pane_description">Pane %1$s</string>
-    <string name="placement_estimated_note">Proportions are a guess until the workspace has been shown on the Mac.</string>
+    <string name="placement_estimated_note">Proportions are a guess until the workspace has been shown on the host.</string>
     <string name="placement_no_panes">This workspace has no pane to split.</string>
     <string name="action_failed_other">That did not work: %1$s</string>
     <string name="action_failed_unknown">That did not work.</string>
@@ -112,27 +116,29 @@
     <string name="pairing_enter_manually">Enter server URL and code manually</string>
     <string name="pairing_in_progress">Pairing...</string>
     <string name="pairing_scan_again">Scan again</string>
-    <string name="pairing_manual_intro">Enter the server URL and pairing code shown by `cmux-bridge pair-device` on the Mac.</string>
+    <string name="pairing_manual_intro">Enter the server URL and pairing code shown by `cmux-bridge pair-device` on the host.</string>
     <string name="pairing_server_url_label">Server URL</string>
     <string name="pairing_server_url_placeholder">https://cmux.example.com</string>
     <string name="pairing_code_label">Pairing code</string>
     <string name="pairing_scan_qr_instead">Scan QR code instead</string>
-    <string name="pairing_confirm_fingerprint_title">Verify this code matches the Mac</string>
-    <string name="pairing_confirm_fingerprint_body">Compare this code against the one `cmux-bridge pair-device` printed on the Mac. Only confirm if they match exactly -- this check is what stops a compromised relay from silently swapping in its own keys.</string>
+    <string name="pairing_confirm_fingerprint_title">Verify this code matches the host</string>
+    <string name="pairing_confirm_fingerprint_body">Compare this code against the one `cmux-bridge pair-device` printed on the host. Only confirm if they match exactly -- this check is what stops a compromised relay from silently swapping in its own keys.</string>
     <string name="pairing_success_title">Paired</string>
-    <string name="pairing_success_body">One more check: this should be the same code you just confirmed, and the same one printed by `cmux-bridge pair-device` on the Mac.</string>
+    <string name="pairing_success_body">One more check: this should be the same code you just confirmed, and the same one printed by `cmux-bridge pair-device` on the host.</string>
 
     <!-- Connection settings screen -->
     <string name="connections_title">Connections</string>
+    <string name="connections_pair_another_host">Pair another host</string>
+    <string name="connections_pair_another_host_help">Scan the QR code a second machine\'s `cmux-bridge pair-device` prints. Each host keeps its own pairings; switch between them from the sessions screen.</string>
     <string name="connection_slot_relay">Relay</string>
     <string name="connection_slot_direct">Tailscale (direct)</string>
-    <string name="connection_relay_description">Reaches your Mac from anywhere, via the home server.</string>
-    <string name="connection_direct_description">Reaches your Mac directly over your tailnet -- used automatically if the relay is unreachable.</string>
+    <string name="connection_relay_description">Reaches the host from anywhere, via the home server.</string>
+    <string name="connection_direct_description">Reaches the host directly over your tailnet -- used automatically if the relay is unreachable.</string>
     <string name="connection_status_paired">Paired</string>
     <string name="connection_status_not_paired">Not paired</string>
     <string name="connection_status_rejected">Rejected — needs re-pairing</string>
     <string name="connection_recovery_relay">The relay no longer recognises this device. Tap Re-pair and scan a new code.</string>
-    <string name="connection_recovery_direct">The Mac no longer recognises this device over Tailscale. Run `cmux-bridge pair-device -direct` on the Mac, then tap Re-pair.</string>
+    <string name="connection_recovery_direct">The host no longer recognises this device over Tailscale. Run `cmux-bridge pair-device -direct` there, then tap Re-pair.</string>
     <string name="action_repair">Re-pair</string>
     <string name="action_forget">Forget</string>
     <string name="forget_connection_dialog_title">Forget %1$s connection?</string>
@@ -141,18 +147,18 @@
     <!-- Terminal font size (Connections/Settings screen) -->
     <string name="terminal_font_size_title">Terminal font size</string>
     <string name="terminal_wheel_scrolling_title">Smooth scrolling in full-screen panes</string>
-    <string name="terminal_wheel_scrolling_on_help">Swipes scroll a fraction of a line at a time, so the pane follows your finger. Each notch is a round trip to the Mac, so on a slow link it can lag behind.</string>
+    <string name="terminal_wheel_scrolling_on_help">Swipes scroll a fraction of a line at a time, so the pane follows your finger. Each notch is a round trip to the host, so on a slow link it can lag behind.</string>
     <string name="terminal_wheel_scrolling_off_help">Swipes send Page Up / Page Down instead. One keystroke jumps half a screen: much faster over a slow link, but it moves in steps rather than smoothly.</string>
     <string name="terminal_poll_title">Check for new output every</string>
     <string name="terminal_poll_millis">%1$d ms</string>
     <string name="terminal_poll_seconds">%1$d s</string>
     <string name="terminal_poll_wifi_label">On Wi-Fi</string>
     <string name="terminal_poll_mobile_label">On mobile data</string>
-    <string name="terminal_poll_help">How often the Mac is checked for output you did not type. Checking less often uses proportionally less data on a busy pane, and costs nothing either way while a pane is idle. Typing and pasting are answered immediately at every setting. A Wi-Fi hotspot you have marked as metered counts as mobile data.</string>
+    <string name="terminal_poll_help">How often the host is checked for output you did not type. Checking less often uses proportionally less data on a busy pane, and costs nothing either way while a pane is idle. Typing and pasting are answered immediately at every setting. A Wi-Fi hotspot you have marked as metered counts as mobile data.</string>
     <string name="terminal_font_size_reset">Reset to fit</string>
     <string name="terminal_font_size_help">100% fits the terminal\'s full width on screen; higher zooms in. Pinching inside a terminal changes the same setting.</string>
-    <string name="connections_intro_title">Connect this phone to your Mac</string>
-    <string name="connections_intro_body">Run “cmux-bridge agent” on the Mac, then pair below by scanning the QR code it prints.\n\nStart with Relay: it reaches your Mac from anywhere. Tailscale is an optional second route for when both are on the same network — pair it too and the app falls back to it on its own.</string>
+    <string name="connections_intro_title">Connect this phone to a host</string>
+    <string name="connections_intro_body">Run “cmux-bridge agent” on the machine you want to reach, then pair below by scanning the QR code it prints.\n\nStart with Relay: it reaches the host from anywhere. Tailscale is an optional second route for when both are on the same network — pair it too and the app falls back to it on its own.</string>
     <string name="terminal_font_size_decrease">Decrease terminal font size</string>
     <string name="terminal_font_size_increase">Increase terminal font size</string>
 
@@ -164,9 +170,9 @@
     <string name="test_push_failure_prefix">Failed: %1$s</string>
 
     <!-- Rejected-credential notification -->
-    <string name="credential_rejected_title">%1$s connection needs re-pairing</string>
+    <string name="credential_rejected_title">%1$s connection to %2$s needs re-pairing</string>
     <string name="credential_rejected_body_relay">The relay no longer recognises this device. Open Connections and re-pair it before the other connection is all you have left.</string>
-    <string name="credential_rejected_body_direct">The Mac no longer recognises this device over Tailscale. Run `cmux-bridge pair-device -direct` on the Mac and re-pair, before the relay is all you have left.</string>
+    <string name="credential_rejected_body_direct">The host no longer recognises this device over Tailscale. Run `cmux-bridge pair-device -direct` there and re-pair, before the relay is all you have left.</string>
 
     <!-- Terminal screen -->
     <string name="terminal_title">Terminal</string>
@@ -179,11 +185,11 @@
     <string name="terminal_pane_actions">Pane actions</string>
     <string name="terminal_split">Split…</string>
     <string name="terminal_new_tab">New tab in this pane</string>
-    <string name="terminal_show_on_mac">Show on Mac</string>
+    <string name="terminal_show_on_mac">Show on %1$s</string>
     <string name="terminal_close_pane">Close this pane…</string>
     <string name="terminal_close_pane_title">Close this pane?</string>
-    <string name="terminal_close_pane_body">%1$s will be closed on the Mac, along with whatever is running in it.</string>
-    <string name="terminal_close_pane_body_unnamed">This pane will be closed on the Mac, along with whatever is running in it.</string>
+    <string name="terminal_close_pane_body">%1$s will be closed on %2$s, along with whatever is running in it.</string>
+    <string name="terminal_close_pane_body_unnamed">This pane will be closed on %1$s, along with whatever is running in it.</string>
     <string name="action_close_pane">Close pane</string>
     <string name="terminal_attach_from_gallery">From gallery</string>
     <string name="terminal_attach_from_clipboard">From clipboard</string>
@@ -194,7 +200,7 @@
     <string name="terminal_attach_copy_size">Sends a %1$s copy (%2$d × %3$d), upright, without camera data.</string>
     <string name="terminal_attach_original_switch">Send the original (%1$s)</string>
     <string name="terminal_attach_original_too_large">The original (%1$s) is over the 10 MB limit, so the copy is what will be sent.</string>
-    <string name="terminal_attach_exif_note">The original keeps its camera data, including any location, and lands on your Mac exactly as it is.</string>
+    <string name="terminal_attach_exif_note">The original keeps its camera data, including any location, and lands on the host exactly as it is.</string>
     <string name="terminal_attach_sent">Image attached</string>
     <string name="terminal_attach_failed">Couldn\'t attach the image</string>
     <string name="terminal_attach_failed_too_large">Image refused: over the bridge\'s size limit</string>
@@ -244,9 +250,9 @@
     <!-- Failed-to-load states (see BridgeFailure / ErrorState): the sentence shown in
          place of the raw `bridge HTTP 503: {"error":"agent_offline"}` text, which is
          still reachable behind Details. -->
-    <string name="error_bridge_agent_offline">Your Mac\'s bridge is offline</string>
-    <string name="error_bridge_unauthorized">This device is no longer paired with your Mac</string>
-    <string name="error_bridge_unreachable">Couldn\'t reach your Mac</string>
+    <string name="error_bridge_agent_offline">The host\'s bridge is offline</string>
+    <string name="error_bridge_unauthorized">This device is no longer paired with the host</string>
+    <string name="error_bridge_unreachable">Couldn\'t reach the host</string>
     <string name="error_bridge_unknown">Something went wrong</string>
     <string name="action_retry">Retry</string>
     <string name="action_details">Details</string>
@@ -255,7 +261,7 @@
          constructor pre-resolved (see e.g. SessionsViewModel), since a ViewModel has no
          @Composable context to call stringResource() itself. Wired up in CmuxNavHost. -->
     <string name="error_bridge_not_configured">Bridge not configured</string>
-    <string name="error_terminal_surface_gone">This pane was closed on the Mac, so there is nothing left to show. Go back to pick another one.</string>
+    <string name="error_terminal_surface_gone">This pane was closed on the host, so there is nothing left to show. Go back to pick another one.</string>
     <string name="error_rename_failed">Rename failed</string>
     <string name="error_set_yolo_mode_failed">Setting YOLO mode failed</string>
     <string name="error_load_sessions_failed">Failed to load sessions</string>
@@ -264,17 +270,17 @@
     <string name="error_reply_failed">Reply failed</string>
     <string name="error_terminal_not_found">Couldn\'t find that item\'s terminal</string>
     <string name="error_test_push_failed">Test push failed</string>
-    <string name="error_pairing_code_expired">This code has expired -- ask the Mac to generate a new one.</string>
+    <string name="error_pairing_code_expired">This code has expired -- ask the host to generate a new one.</string>
     <string name="error_pairing_code_invalid_scan_again">This code has expired or was already used -- scan a fresh one.</string>
     <string name="error_pairing_code_invalid_ask_fresh">This code has expired or was already used -- ask for a fresh one.</string>
     <string name="error_pairing_failed">Pairing failed</string>
-    <string name="pairing_awaiting_operator_title">Waiting for the Mac to confirm</string>
-    <string name="pairing_awaiting_operator_body">Check that this code matches the one on the Mac, then answer y there. Nothing is saved until you do.</string>
-    <string name="error_pairing_refused">The Mac declined this pairing -- start again if the codes really did match.</string>
-    <string name="error_pairing_not_answered">Nobody answered on the Mac -- check that cmux-bridge pair-device is still running.</string>
+    <string name="pairing_awaiting_operator_title">Waiting for the host to confirm</string>
+    <string name="pairing_awaiting_operator_body">Check that this code matches the one on the host, then answer y there. Nothing is saved until you do.</string>
+    <string name="error_pairing_refused">The host declined this pairing -- start again if the codes really did match.</string>
+    <string name="error_pairing_not_answered">Nobody answered on the host -- check that cmux-bridge pair-device is still running.</string>
     <string name="about_title">About</string>
     <string name="about_app_version">App</string>
-    <string name="about_bridge_version">Bridge (Mac agent)</string>
+    <string name="about_bridge_version">Bridge (host agent)</string>
     <string name="about_version_loading">checking…</string>
     <string name="about_version_unavailable">unknown</string>
 </resources>

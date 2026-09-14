@@ -118,6 +118,7 @@ import androidx.compose.ui.unit.sp
 import com.sodre90.cmuxremote.BuildConfig
 import com.sodre90.cmuxremote.R
 import com.sodre90.cmuxremote.model.DecodedGrid
+import com.sodre90.cmuxremote.ui.LocalHostName
 import com.sodre90.cmuxremote.ui.UiState
 import com.sodre90.cmuxremote.ui.YoloBadge
 import com.sodre90.cmuxremote.ui.layout.PlacementSheet
@@ -894,7 +895,7 @@ private fun PaneActionsMenu(
                 )
             }
             DropdownMenuItem(
-                text = { Text(stringResource(R.string.terminal_show_on_mac)) },
+                text = { Text(stringResource(R.string.terminal_show_on_mac, LocalHostName.current)) },
                 onClick = {
                     open = false
                     onShowOnMac()

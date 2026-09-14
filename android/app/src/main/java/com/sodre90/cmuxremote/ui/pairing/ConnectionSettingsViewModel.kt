@@ -3,8 +3,6 @@ package com.sodre90.cmuxremote.ui.pairing
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sodre90.cmuxremote.data.BridgeGateway
-import com.sodre90.cmuxremote.data.ConnectionSlot
-import com.sodre90.cmuxremote.data.CredentialStatus
 import com.sodre90.cmuxremote.data.TerminalDisplayGateway
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -79,12 +77,6 @@ class ConnectionSettingsViewModel(
             }
         }
     }
-
-    /** Whether [slot]'s server still recognises this device's credential.
-     *  Surfaced here so a rejection is visible while the *other* slot is still
-     *  serving -- the only point at which the user can still act on it. */
-    fun credentialStatus(slot: ConnectionSlot): StateFlow<CredentialStatus> =
-        bridge.slotCredentialHealth().status(slot)
 
     fun loadFontZoom(): Float = terminalDisplay.loadFontZoom()
 

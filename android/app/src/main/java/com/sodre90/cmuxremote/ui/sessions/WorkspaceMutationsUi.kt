@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import com.sodre90.cmuxremote.R
 import com.sodre90.cmuxremote.model.Attention
 import com.sodre90.cmuxremote.model.Workspace
+import com.sodre90.cmuxremote.ui.LocalHostName
 
 /**
  * Where a new workspace should live: the directories already in use, each
@@ -61,7 +62,7 @@ internal fun NewWorkspaceDialog(
                 OutlinedTextField(
                     value = path,
                     onValueChange = { path = it },
-                    label = { Text(stringResource(R.string.sessions_new_workspace_path_label)) },
+                    label = { Text(stringResource(R.string.sessions_new_workspace_path_label, LocalHostName.current)) },
                     placeholder = { Text(stringResource(R.string.sessions_new_workspace_path_hint)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
@@ -121,7 +122,8 @@ internal fun CloseWorkspaceDialog(ws: Workspace, onConfirm: () -> Unit, onDismis
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 val panes = ws.terminals.size
-                Text(pluralStringResource(R.plurals.sessions_close_workspace_panes, panes, name, panes))
+                val host = LocalHostName.current
+                Text(pluralStringResource(R.plurals.sessions_close_workspace_panes, panes, name, panes, host))
                 if (ws.attention != Attention.NONE) {
                     Text(
                         stringResource(R.string.sessions_close_workspace_attention),
@@ -150,9 +152,9 @@ internal fun ClosePaneDialog(paneName: String, onConfirm: () -> Unit, onDismiss:
         text = {
             Text(
                 if (paneName.isBlank()) {
-                    stringResource(R.string.terminal_close_pane_body_unnamed)
+                    stringResource(R.string.terminal_close_pane_body_unnamed, LocalHostName.current)
                 } else {
-                    stringResource(R.string.terminal_close_pane_body, paneName)
+                    stringResource(R.string.terminal_close_pane_body, paneName, LocalHostName.current)
                 },
             )
         },
@@ -168,7 +170,7 @@ internal fun ClosePaneDialog(paneName: String, onConfirm: () -> Unit, onDismiss:
 /** The one line a finished action gets. */
 @Composable
 internal fun actionOutcomeText(outcome: ActionOutcome): String = when (outcome) {
-    ActionOutcome.ShownOnMac -> stringResource(R.string.action_outcome_shown_on_mac)
+    ActionOutcome.ShownOnMac -> stringResource(R.string.action_outcome_shown_on_mac, LocalHostName.current)
     ActionOutcome.WorkspaceClosed -> stringResource(R.string.action_outcome_workspace_closed)
     is ActionOutcome.Failed -> when (outcome.failure) {
         ActionFailure.BRIDGE_TOO_OLD -> stringResource(R.string.action_failed_bridge_too_old)
