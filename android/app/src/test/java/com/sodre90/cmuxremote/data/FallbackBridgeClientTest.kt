@@ -71,7 +71,7 @@ class FallbackBridgeClientTest {
 
         val result = runBlocking { fb.sessions() }
 
-        assertEquals(0, result.size)
+        assertEquals(0, result.workspaces.size)
         assertEquals(1, primaryServer.requestCount)
         assertEquals(0, fallbackServer.requestCount)
     }
@@ -87,7 +87,7 @@ class FallbackBridgeClientTest {
 
         val result = runBlocking { fb.sessions() }
 
-        assertEquals(0, result.size)
+        assertEquals(0, result.workspaces.size)
         assertEquals(1, primaryServer.requestCount)
         assertEquals(1, fallbackServer.requestCount)
     }
@@ -205,7 +205,7 @@ class FallbackBridgeClientTest {
 
         val result = runBlocking { fb.sessions() }
 
-        assertEquals(0, result.size)
+        assertEquals(0, result.workspaces.size)
         assertEquals(1, primaryServer.requestCount)
     }
 
@@ -232,7 +232,7 @@ class FallbackBridgeClientTest {
 
         val result = runBlocking { fb.sessions() }
 
-        assertEquals(0, result.size)
+        assertEquals(0, result.workspaces.size)
         assertEquals(1, fallbackServer.requestCount)
     }
 
@@ -297,7 +297,7 @@ class FallbackBridgeClientTest {
 
         val result = runBlocking { fb.sessions() }
 
-        assertEquals(0, result.size)
+        assertEquals(0, result.workspaces.size)
         assertEquals(2, primaryServer.requestCount)
     }
 

@@ -12,7 +12,6 @@ import com.sodre90.cmuxremote.model.HostInfo
 import com.sodre90.cmuxremote.model.Workspace
 import com.sodre90.cmuxremote.ui.UiState
 import com.sodre90.cmuxremote.ui.inbox.isPendingInboxKind
-import com.sodre90.cmuxremote.ui.inbox.isPendingSetChangeSignal
 import com.sodre90.cmuxremote.ui.layout.PlacementController
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.BufferOverflow
@@ -41,12 +40,12 @@ class SessionsViewModel(
     private val _state = MutableStateFlow<UiState<List<Workspace>>>(UiState.Loading)
     val state: StateFlow<UiState<List<Workspace>>> = _state.asStateFlow()
 
-    // Backs the top-bar Inbox badge -- deliberately the same `/feed/pending`
-    // count the Inbox screen itself renders (see [isPendingInboxKind]), not
-    // workspaces' cmux `has_unread` flag: that flag fires on any new output,
-    // so it previously showed a badge count with nothing behind it once
-    // opened. Kept stale on a failed fetch rather than reset to 0, same as
-    // [state] on a background refresh failure -- see [fetchAndApply].
+    // Backs the top-bar Inbox badge -- deliberately the count of what the
+    // Inbox screen itself renders (see [isPendingInboxKind]), not workspaces'
+    // cmux `has_unread` flag: that flag fires on any new output, so it
+    // previously showed a badge count with nothing behind it once opened.
+    // Kept stale on a failed fetch rather than reset to 0, same as [state] on
+    // a background refresh failure -- see [applyPendingCount].
     private val _pendingCount = MutableStateFlow(0)
     val pendingCount: StateFlow<Int> = _pendingCount.asStateFlow()
 
@@ -99,13 +98,6 @@ class SessionsViewModel(
     private val refreshRequests =
         MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
 
-    // Like [refreshRequests] but only the badge-count refetch (GET /feed/pending),
-    // and only for `feed` frames -- the pending count cannot move on any other
-    // frame type, so non-feed agent activity (terminal output churn etc.)
-    // costs one /sessions fetch instead of two full-body requests per burst.
-    private val badgeRefreshRequests =
-        MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
-
     private val reconnector = SocketReconnector<EventFrame>(
         bridge.relayHealth(),
         monitor = bridge.connectionMonitor(),
@@ -122,9 +114,6 @@ class SessionsViewModel(
         refresh()
         viewModelScope.launch {
             refreshRequests.debounce(EVENT_REFRESH_DEBOUNCE_MS).collect { autoRefresh() }
-        }
-        viewModelScope.launch {
-            badgeRefreshRequests.debounce(EVENT_REFRESH_DEBOUNCE_MS).collect { refreshPendingCount() }
         }
         subscribeToEvents()
     }
@@ -240,12 +229,13 @@ class SessionsViewModel(
         }
         _state.value = UiState.Loading
         viewModelScope.launch {
-            _state.value = try {
-                UiState.Ready(client.sessions())
+            try {
+                val response = client.sessions()
+                _state.value = UiState.Ready(response.workspaces)
+                applyPendingCount(client, response.pendingCount)
             } catch (e: Exception) {
-                UiState.Error(e.message ?: loadSessionsFailedMessage)
+                _state.value = UiState.Error(e.message ?: loadSessionsFailedMessage)
             }
-            refreshPendingCount(client)
         }
     }
 
@@ -290,15 +280,23 @@ class SessionsViewModel(
 
     private suspend fun fetchAndApply(client: FallbackBridgeClient) {
         try {
-            _state.value = UiState.Ready(client.sessions())
+            val response = client.sessions()
+            _state.value = UiState.Ready(response.workspaces)
             _actionError.value = null
+            applyPendingCount(client, response.pendingCount)
         } catch (e: Exception) {
             _actionError.value = e.message ?: refreshSessionsFailedMessage
         }
-        refreshPendingCount(client)
     }
 
-    private suspend fun refreshPendingCount(client: FallbackBridgeClient) {
+    /** The Inbox badge rides on the list fetch; only a bridge that left it out
+     *  (no feed, feed unreadable, or too old to count) costs a /feed/pending
+     *  request, and a failed one keeps the badge as it was. */
+    private suspend fun applyPendingCount(client: FallbackBridgeClient, counted: Int?) {
+        if (counted != null) {
+            _pendingCount.value = counted
+            return
+        }
         if (!client.hostInfo.value.capabilities.feed) {
             _pendingCount.value = 0
             return
@@ -309,14 +307,6 @@ class SessionsViewModel(
             ?: _pendingCount.value
     }
 
-    /** Event-driven badge refetch -- same shape as [refreshPendingCount] but
-     *  resolving its own client, so the debounced collector can call it
-     *  without re-checking pairing. */
-    private suspend fun refreshPendingCount() {
-        val client = bridge.activeBridge() ?: return
-        refreshPendingCount(client)
-    }
-
     // Re-fetch on cmux agent activity: SessionStart/SessionEnd change which
     // workspaces exist, Notification/Stop change attention + preview. Mirrors
     // InboxViewModel's reconnect-with-backoff loop over the same /events
@@ -324,8 +314,8 @@ class SessionsViewModel(
     //
     // The whole subscription is keyed on app foreground: viewModelScope keeps
     // running with the screen off, and without this gate the open socket's
-    // 20s keepalive pings plus a /sessions+/feed/pending refetch pair per
-    // event burst would burn cellular data all day in the user's pocket.
+    // 20s keepalive pings plus a /sessions refetch per event burst would
+    // burn cellular data all day in the user's pocket.
     // collectLatest tears the reconnect loop (and its socket, via the flow's
     // awaitClose) down on background and rebuilds it on return; push covers
     // attention meanwhile. Tests default [BridgeGateway.appForeground] to
@@ -338,16 +328,10 @@ class SessionsViewModel(
                 reconnector.run(
                     openSocket = { slot, onOpen -> bridge.eventsSocket(slot)?.connect(onOpen) },
                     // catch up on anything missed while disconnected -- including
-                    // the whole background gap, so both fetches re-run here.
-                    onBeforeReconnect = {
-                        refreshRequests.tryEmit(Unit)
-                        badgeRefreshRequests.tryEmit(Unit)
-                    },
+                    // the whole background gap.
+                    onBeforeReconnect = { refreshRequests.tryEmit(Unit) },
                 ) { frame ->
-                    if (frame.type != "heartbeat") {
-                        refreshRequests.tryEmit(Unit)
-                        if (isPendingSetChangeSignal(frame.type)) badgeRefreshRequests.tryEmit(Unit)
-                    }
+                    if (frame.type != "heartbeat") refreshRequests.tryEmit(Unit)
                     true
                 }
             }

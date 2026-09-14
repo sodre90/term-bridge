@@ -301,7 +301,7 @@ class TerminalViewModel(
         val client = bridge.activeBridge() ?: return
         viewModelScope.launch {
             try {
-                val ws = client.sessions().firstOrNull { ws -> ws.terminals.any { it.id == surfaceId } }
+                val ws = client.sessions().workspaces.firstOrNull { ws -> ws.terminals.any { it.id == surfaceId } }
                 _yoloMode.value = ws?.yoloMode.orEmpty()
                 _paneLabel.value = paneLabelOf(ws, surfaceId)
                 _workspaceId.value = ws?.id

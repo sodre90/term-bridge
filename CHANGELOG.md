@@ -96,6 +96,11 @@ running cmux, and switches between them.
   Unchanged on purpose: the Android applicationId
   (`com.sodre90.cmuxremote` -- a new id would be a new app), the e2e HKDF
   label and the relay CA's name (both bind existing pairings).
+- **The Inbox badge rides on the workspace list.** `GET /sessions` carries
+  `pending_count`, the number of prompts the Inbox would show, so a refresh is
+  one request instead of `/sessions` plus `/feed/pending`, and a feed burst one
+  instead of three. The app still asks `/feed/pending` when a bridge leaves
+  the count out.
 
 ### Fixed
 

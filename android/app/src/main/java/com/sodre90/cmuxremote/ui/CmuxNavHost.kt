@@ -151,7 +151,7 @@ private fun HostNavHost(
             return@LaunchedEffect
         }
         if (pendingWorkspaceId != null) {
-            val ws = runCatching { container.activeBridge()?.sessions() }
+            val ws = runCatching { container.activeBridge()?.sessions()?.workspaces }
                 .getOrNull()
                 ?.firstOrNull { it.id == pendingWorkspaceId }
             val target = ws?.let { notificationTarget(it) }

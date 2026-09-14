@@ -66,6 +66,9 @@ func TestTmuxHostAdvertisesItselfAndRefusesWhatItLacks(t *testing.T) {
 	if sessions.Host.Kind != "tmux" || sessions.Host.Capabilities.Tabs || sessions.Host.Capabilities.Feed {
 		t.Fatalf("host = %+v", sessions.Host)
 	}
+	if sessions.PendingCount != nil {
+		t.Fatalf("pending_count = %d on a host without a feed, want absent", *sessions.PendingCount)
+	}
 	if len(sessions.Workspaces) != 1 || sessions.Workspaces[0].ID != "tmux-1789367814-w3" {
 		t.Fatalf("workspaces = %+v", sessions.Workspaces)
 	}

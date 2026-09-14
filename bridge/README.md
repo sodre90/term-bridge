@@ -514,7 +514,7 @@ relay.
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET  | `/sessions` | list workspaces/terminals (normalized), plus a `host` block: `{name, kind: "cmux" \| "tmux", capabilities: {tabs, feed}}` the app gates its UI on |
+| GET  | `/sessions` | list workspaces/terminals (normalized), plus a `host` block: `{name, kind: "cmux" \| "tmux", capabilities: {tabs, feed}}` the app gates its UI on, and `pending_count`: how many prompts the Inbox would list, so the badge needs no `/feed/pending` fetch (absent when the host has no feed or it could not be read) |
 | GET  | `/events` (WS) | agent feed + notifications; `needs_attention` flags blocking prompts |
 | GET  | `/terminal/{id}` (WS) | replay + live output (down); input/paste/resize (up) |
 | GET  | `/feed/pending` | list pending blocking prompts (full question/option structure) |

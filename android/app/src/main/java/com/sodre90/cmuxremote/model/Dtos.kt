@@ -73,11 +73,14 @@ data class TerminalPane(
 
 /** Envelope returned by `GET /sessions`; mirrors bridge/internal/wire/sessions.go's
  *  SessionsResponse. [host] defaults to a cmux host so a bridge too old to
- *  send it behaves exactly as before. */
+ *  send it behaves exactly as before. [pendingCount] is how many prompts the
+ *  Inbox would list; null when the bridge could not say (no feed, feed
+ *  unreadable, or too old), in which case the badge is fetched the old way. */
 @Serializable
 data class WorkspacesResponse(
     val workspaces: List<Workspace> = emptyList(),
     val host: HostInfo = HostInfo(),
+    @SerialName("pending_count") val pendingCount: Int? = null,
 )
 
 /** Which machine and backend an agent fronts (wire HostInfo). [kind] is one of

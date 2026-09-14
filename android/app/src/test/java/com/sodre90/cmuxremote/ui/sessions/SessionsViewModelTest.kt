@@ -444,6 +444,62 @@ class SessionsViewModelTest {
         assertEquals(0, feedRequests.get())
     }
 
+    /** A bridge that counts the pending prompts on the list response has
+     *  paid for the badge already: no /feed/pending request, on init's
+     *  refresh or a user's. */
+    @Test
+    fun aCountedListResponseSetsTheBadgeWithoutAFeedRequest() {
+        val feedRequests = AtomicInteger(0)
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse = when (request.path) {
+                "/sessions" -> MockResponse().setBody(
+                    """{"workspaces":[],
+                        "host":{"name":"mac","kind":"cmux","capabilities":{"tabs":true,"feed":true}},
+                        "pending_count":3}""",
+                )
+                else -> {
+                    feedRequests.incrementAndGet()
+                    MockResponse().setBody("""{"items":[{"id":"f1","kind":"question"}]}""")
+                }
+            }
+        }
+        val gw = FakeSessionsBridgeGateway()
+        gw.bridge = bridgeFor(server)
+        val vm = sessionsViewModel(gw, orderGateway)
+        waitUntil { vm.pendingCount.value == 3 }
+        vm.userRefresh()
+        waitUntil { server.requestCount >= 2 }
+        waitUntil { !vm.isRefreshing.value }
+
+        assertEquals(3, vm.pendingCount.value)
+        assertEquals(0, feedRequests.get())
+    }
+
+    /** A bridge too old to count (no `pending_count`) still gets its badge
+     *  the way it always did, from /feed/pending. */
+    @Test
+    fun anUncountedListResponseStillFetchesTheBadgeFromTheFeed() {
+        val feedRequests = AtomicInteger(0)
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse = when (request.path) {
+                "/sessions" -> MockResponse().setBody("""{"workspaces":[]}""")
+                "/feed/pending" -> {
+                    feedRequests.incrementAndGet()
+                    MockResponse().setBody(
+                        """{"items":[{"id":"f1","kind":"question"},{"id":"f2","kind":"toolUse"}]}""",
+                    )
+                }
+                else -> MockResponse().setResponseCode(404)
+            }
+        }
+        val gw = FakeSessionsBridgeGateway()
+        gw.bridge = bridgeFor(server)
+        val vm = sessionsViewModel(gw, orderGateway)
+
+        waitUntil { vm.pendingCount.value == 1 }
+        assertEquals(1, feedRequests.get())
+    }
+
     @Test
     fun sortByAttentionReadsAndWritesThroughTheOrderGateway() {
         val vm = sessionsViewModel(FakeSessionsBridgeGateway(), orderGateway)

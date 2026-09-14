@@ -230,7 +230,7 @@ class InboxViewModel(
             _actionError.value = bridgeNotConfiguredMessage
             return null
         }
-        val target = runCatching { c.sessions() }.getOrNull()?.let { pendingItemTarget(item, it) }
+        val target = runCatching { c.sessions().workspaces }.getOrNull()?.let { pendingItemTarget(item, it) }
         if (target == null) _actionError.value = terminalNotFoundMessage
         return target
     }

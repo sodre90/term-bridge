@@ -64,17 +64,40 @@ type pendingFeedItem struct {
 // on any RPC/parse failure -- every caller treats "no pending item" and "could
 // not find out" the same way, by falling back rather than failing.
 func (s *Server) listPendingItems(ctx context.Context) []pendingFeedItem {
+	items, _ := s.pendingItems(ctx)
+	return items
+}
+
+func (s *Server) pendingItems(ctx context.Context) ([]pendingFeedItem, error) {
 	raw, err := s.host.PendingFeed(ctx)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	var resp struct {
 		Items []pendingFeedItem `json:"items"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
+		return nil, err
+	}
+	return resp.Items, nil
+}
+
+// pendingInboxCount is how many prompts the app's Inbox would list right now
+// -- the same kinds InboxLogic.kt's isPendingInboxKind admits -- or nil when
+// the feed could not be read. It rides on GET /sessions so the badge costs
+// no second request carrying every prompt's full body.
+func (s *Server) pendingInboxCount(ctx context.Context) *int {
+	items, err := s.pendingItems(ctx)
+	if err != nil {
 		return nil
 	}
-	return resp.Items
+	n := 0
+	for _, item := range items {
+		if item.Kind == wire.FeedKindQuestion || item.Kind == wire.FeedKindPermissionRequest {
+			n++
+		}
+	}
+	return &n
 }
 
 // newestPendingForCWD returns the most recently created pending item running

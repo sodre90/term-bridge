@@ -3,7 +3,7 @@ package com.sodre90.cmuxremote.data
 import com.sodre90.cmuxremote.model.FeedReply
 import com.sodre90.cmuxremote.model.HostInfo
 import com.sodre90.cmuxremote.model.PendingFeedItem
-import com.sodre90.cmuxremote.model.Workspace
+import com.sodre90.cmuxremote.model.WorkspacesResponse
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -158,8 +158,8 @@ class FallbackBridgeClient(
      *  a host's name and kind without a pairing-time wire change. */
     val hostInfo: StateFlow<HostInfo> = _hostInfo.asStateFlow()
 
-    suspend fun sessions(): List<Workspace> = retryingNotPaired {
-        call { it.sessions() }.also { publishHostInfo(it.host) }.workspaces
+    suspend fun sessions(): WorkspacesResponse = retryingNotPaired {
+        call { it.sessions() }.also { publishHostInfo(it.host) }
     }
 
     private fun publishHostInfo(info: HostInfo) {

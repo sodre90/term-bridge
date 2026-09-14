@@ -8,6 +8,11 @@ package wire
 type SessionsResponse struct {
 	Workspaces []Workspace `json:"workspaces"`
 	Host       HostInfo    `json:"host"`
+	// PendingCount is how many prompts the Inbox would list (question and
+	// permissionRequest items), so the badge needs no /feed/pending fetch of
+	// its own. Absent when the host has no feed, the feed could not be read,
+	// or the bridge predates it -- the app then falls back to /feed/pending.
+	PendingCount *int `json:"pending_count,omitempty"`
 }
 
 // HostInfo names the machine and backend behind an agent. Name is the

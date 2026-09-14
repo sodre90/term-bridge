@@ -41,5 +41,9 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 			workspaces[i].YoloMode = s.yolo.Mode(workspaces[i].ID)
 		}
 	}
-	httpjson.Write(w, http.StatusOK, wire.SessionsResponse{Workspaces: workspaces, Host: s.hostInfo})
+	resp := wire.SessionsResponse{Workspaces: workspaces, Host: s.hostInfo}
+	if s.hostInfo.Capabilities.Feed {
+		resp.PendingCount = s.pendingInboxCount(r.Context())
+	}
+	httpjson.Write(w, http.StatusOK, resp)
 }

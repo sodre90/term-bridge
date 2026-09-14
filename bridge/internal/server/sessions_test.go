@@ -215,3 +215,57 @@ func TestSessionsCarriesHostIdentity(t *testing.T) {
 		t.Fatalf("host name %q should be the short hostname", body.Host.Name)
 	}
 }
+
+// pendingCountFixtureItems is mirrored by the app's PendingCountFixtureTest:
+// the Inbox lists question and permissionRequest items, so a bridge counting
+// these four must say 2 and the app's badge must show 2.
+const pendingCountFixtureItems = `{"request_id":"q1","kind":"question","cwd":"/tmp/proj"},` +
+	`{"request_id":"p1","kind":"permissionRequest","cwd":"/tmp/proj"},` +
+	`{"request_id":"e1","kind":"exitPlan","cwd":"/tmp/proj"},` +
+	`{"request_id":"t1","kind":"toolUse","cwd":"/tmp/proj"}`
+
+func sessionsWithFeed(t *testing.T, feedCase string) wire.SessionsResponse {
+	t.Helper()
+	script := `#!/bin/sh
+case "$2" in
+  mobile.workspace.list) echo '{"workspaces":[]}' ;;
+  feed.list) ` + feedCase + ` ;;
+  *) echo '{"ok":true}' ;;
+esac
+`
+	s, tok := newTestServer(t, script)
+	srv := httptest.NewServer(s.Handler())
+	defer srv.Close()
+
+	req, _ := http.NewRequest("GET", srv.URL+"/sessions", nil)
+	req.Header.Set("Authorization", "Bearer "+tok)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("want 200, got %d", resp.StatusCode)
+	}
+	var body wire.SessionsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
+	return body
+}
+
+func TestSessionsCountsThePromptsTheInboxWouldList(t *testing.T) {
+	body := sessionsWithFeed(t, `echo '{"items":[`+pendingCountFixtureItems+`]}'`)
+	if body.PendingCount == nil || *body.PendingCount != 2 {
+		t.Fatalf("pending_count = %v, want 2 (question + permissionRequest)", body.PendingCount)
+	}
+}
+
+// A feed the bridge cannot read must not fail the workspace list; the count
+// is left out and the app keeps whatever badge it had.
+func TestSessionsLeavesThePendingCountOutWhenTheFeedFails(t *testing.T) {
+	body := sessionsWithFeed(t, `exit 1`)
+	if body.PendingCount != nil {
+		t.Fatalf("pending_count = %d after a failed feed read, want absent", *body.PendingCount)
+	}
+}
