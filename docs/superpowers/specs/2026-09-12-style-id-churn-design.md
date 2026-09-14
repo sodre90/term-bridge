@@ -1,7 +1,8 @@
 # Every span changes every frame because cmux renumbers style ids — Design
 
 - **Date:** 2026-09-12
-- **Status:** Approved 2026-09-12 — ready for implementation (see Decisions)
+- **Status:** Closed 2026-09-14 — commit 1 landed (`0696d20`); commits 2–3
+  measured and not built, see `2026-09-14-row-delta-design.md` (decisions 1–2)
 - **Author:** perdos
 - **Bead:** `cmux-app-bly`
 - **Follows:** `cmux-app-rw1` (shared-window compression), which this unblocks

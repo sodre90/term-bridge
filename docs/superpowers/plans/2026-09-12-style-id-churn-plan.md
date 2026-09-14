@@ -50,6 +50,11 @@ Acceptance: the temporary `writeTerminalFrame` log shows `unchanged` naming
 
 ## Commit 2 — send only styles that are new
 
+**Not built (2026-09-14).** Measured after commit 1 and the shared window
+(`4add77a`): `styles` was already named in `unchanged` on 248 of 256 frames, so
+the table costs nothing on 97% of frames. What remained was `row_spans`, which
+`2026-09-14-row-delta-plan.md` addressed instead (24.6 KB/s → ~4 KB/s).
+
 `internal/server/terminal.go`, `internal/wire/terminal.go`, `model/Dtos.kt`,
 `data/e2e` decode path, plus tests on both sides.
 
@@ -66,6 +71,10 @@ This is what handles the animated-colour entry that will never be sticky.
 Expected 12 KB → a few hundred bytes per frame.
 
 ## Commit 3 — measure, then decide on the scrollback shift delta
+
+**Not built (2026-09-14).** Measured: the scrollback block was re-sent on 3 of
+256 frames over 41 s of a working pane, ~1.5 KB/s. Not worth a second source of
+truth next to the grid; revisit only if a scrolling pane is measured expensive.
 
 Do not write this until commits 1 and 2 are measured.
 
