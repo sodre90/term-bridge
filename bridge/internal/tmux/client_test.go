@@ -133,3 +133,27 @@ func TestWatchHoldsStdinOpenAndEndsWithTheProcess(t *testing.T) {
 		t.Fatalf("Watch after cancel = %v", err)
 	}
 }
+
+func TestWatchReturnsOnCancelEvenWhenAChildStillHoldsThePipes(t *testing.T) {
+	// Cancelling kills only the fake; a child it forked keeps the stderr pipe
+	// open. Wait used to block on that pipe forever, which is what hung CI's
+	// go test for 10 minutes once the race in the fake above landed that way.
+	script := "#!/bin/sh\nsleep 30 &\necho '%session-changed $0 s'\ncat >/dev/null\n"
+	c := &Client{Bin: testutil.WriteFakeTmux(t, script)}
+	ctx, cancel := context.WithCancel(context.Background())
+	seen := make(chan Notification, 1)
+	done := make(chan error, 1)
+	go func() {
+		done <- c.Watch(ctx, "s", func(n Notification) {
+			select {
+			case seen <- n:
+			default:
+			}
+		})
+	}()
+	<-seen
+	cancel()
+	if err := <-done; !errors.Is(err, context.Canceled) {
+		t.Fatalf("Watch after cancel = %v", err)
+	}
+}

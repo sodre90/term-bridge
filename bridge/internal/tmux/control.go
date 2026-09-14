@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 )
 
 // Notification is one `%name args` line from a control-mode client, minus
@@ -40,6 +41,10 @@ func (c *Client) Watch(ctx context.Context, session string, sink func(Notificati
 	}
 	var stderr strings.Builder
 	cmd.Stderr = &stderr
+	// Once the process is gone, stop waiting on its pipes: anything it left
+	// behind holding them (tmux spawns nothing, a test fake's child does) must
+	// not keep Wait -- and so the agent's shutdown -- hanging.
+	cmd.WaitDelay = time.Second
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("tmux control mode: %w", err)
 	}
