@@ -79,6 +79,40 @@ func TestDialAndServeCallsOnConnected(t *testing.T) {
 	}
 }
 
+// TestDialAndServeReturnsWhenContextEnds is the SIGTERM path: runAgent's
+// context ends and dialAndServe must come back on its own, tearing the
+// tunnel down so the relay sees the agent leave -- the tunnel used to outlive
+// the context and hold the process in Accept until systemd aborted it.
+func TestDialAndServeReturnsWhenContextEnds(t *testing.T) {
+	sessions := make(chan *yamux.Session, 1)
+	srv := tunnelAcceptServer(t, sessions)
+	defer srv.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http")
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan error, 1)
+	go func() { done <- dialAndServe(ctx, wsURL, nil, handler, nil) }()
+
+	var serverSess *yamux.Session
+	select {
+	case serverSess = <-sessions:
+	case <-time.After(2 * time.Second):
+		t.Fatal("server never accepted a tunnel session")
+	}
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("dialAndServe did not return after its context ended")
+	}
+	if _, err := serverSess.Accept(); err == nil {
+		t.Fatal("the relay side of the tunnel is still open after the agent's context ended")
+	}
+}
+
 // TestDialAndServeNilOnConnectedIsSafe exercises the real production call
 // shape (runAgent always passes a non-nil callback, but the parameter is
 // optional by contract -- guard it).

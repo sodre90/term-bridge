@@ -124,6 +124,11 @@ func dialAndServe(ctx context.Context, relayURL string, tlsCfg *tls.Config, hand
 		return err
 	}
 	defer func() { _ = sess.Close() }()
+	// http.Serve only returns once Accept fails, and nothing else ends the
+	// tunnel on SIGTERM: without this the agent sat in Accept until systemd
+	// aborted it 45 s later (cmux-app-1da).
+	stop := context.AfterFunc(ctx, func() { _ = sess.Close() })
+	defer stop()
 	if onConnected != nil {
 		onConnected()
 	}
@@ -578,11 +583,11 @@ func runAgent(args []string) int {
 			dialLog.up()
 		})
 		relayTunnelUp.Store(false)
-		if err != nil {
-			dialLog.failed(err)
-		}
 		if ctx.Err() != nil {
 			break
+		}
+		if err != nil {
+			dialLog.failed(err)
 		}
 		backoff.Sleep(ctx, retry.Next())
 	}
