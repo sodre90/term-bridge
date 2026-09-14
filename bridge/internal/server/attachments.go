@@ -97,9 +97,7 @@ func (s *Server) attachImage(ctx context.Context, surfaceID string, up wire.Term
 		return err
 	}
 	slog.Info("terminal: attachment landed", "surface_id", surfaceID, "path", path, "bytes", len(image), "hint", up.Name)
-	_, err = s.cmux.Rpc(ctx, "mobile.terminal.paste",
-		map[string]any{"surface_id": surfaceID, "text": path + " "})
-	return err
+	return s.host.Paste(ctx, surfaceID, path+" ")
 }
 
 // Save writes image to a new file and returns its path. The directory is

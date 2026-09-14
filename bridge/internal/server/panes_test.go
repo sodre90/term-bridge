@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/sodre90/cmux-bridge/internal/host/cmuxhost"
 	"github.com/sodre90/cmux-bridge/internal/wire"
 )
 
@@ -141,14 +142,14 @@ func TestLayoutDropsTheSidebarOffsetAndKeepsProportions(t *testing.T) {
 
 func TestNormaliseLayoutOfATwoByTwoSplit(t *testing.T) {
 	// The live shape after splitting the right column downward.
-	var list paneList
-	if err := json.Unmarshal([]byte(`{"panes":[
+	panes, err := cmuxhost.ParsePanes([]byte(`{"panes":[
 	 {"id":"a","pixel_frame":{"height":1382,"width":1156,"x":248,"y":28}},
 	 {"id":"b","pixel_frame":{"height":691,"width":1156,"x":1404,"y":28}},
-	 {"id":"c","pixel_frame":{"height":691,"width":1156,"x":1404,"y":719}}]}`), &list); err != nil {
+	 {"id":"c","pixel_frame":{"height":691,"width":1156,"x":1404,"y":719}}]}`))
+	if err != nil {
 		t.Fatal(err)
 	}
-	layout := normaliseLayout(list.Panes)
+	layout := normaliseLayout(panes)
 	want := []wire.LayoutPane{
 		{ID: "a", X: 0, Y: 0, W: 0.5, H: 1, SurfaceIDs: []string{}},
 		{ID: "b", X: 0.5, Y: 0, W: 0.5, H: 0.5, SurfaceIDs: []string{}},
@@ -164,14 +165,14 @@ func TestNormaliseLayoutOfATwoByTwoSplit(t *testing.T) {
 // A workspace never shown on the Mac reports every frame as zero; the app
 // gets equal columns in index order and a flag saying so.
 func TestNormaliseLayoutWithoutGeometryIsEstimatedColumns(t *testing.T) {
-	var list paneList
-	if err := json.Unmarshal([]byte(`{"panes":[
+	panes, err := cmuxhost.ParsePanes([]byte(`{"panes":[
 	 {"id":"a","focused":true,"pixel_frame":{"height":0,"width":0,"x":0,"y":0},"surface_ids":["s1"],"selected_surface_id":"s1"},
 	 {"id":"b","pixel_frame":{"height":0,"width":0,"x":0,"y":0},"surface_ids":["s2","s3"],"selected_surface_id":"s3"},
-	 {"id":"c","pixel_frame":{"height":0,"width":0,"x":0,"y":0}}]}`), &list); err != nil {
+	 {"id":"c","pixel_frame":{"height":0,"width":0,"x":0,"y":0}}]}`))
+	if err != nil {
 		t.Fatal(err)
 	}
-	layout := normaliseLayout(list.Panes)
+	layout := normaliseLayout(panes)
 	if !layout.Estimated {
 		t.Fatal("want estimated")
 	}

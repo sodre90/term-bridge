@@ -40,6 +40,10 @@ func (e *RPCError) Error() string {
 	return fmt.Sprintf("cmux rpc %s: %s: %s", e.Method, e.Code, e.Message)
 }
 
+// NotFound satisfies host.IsNotFound's interface without this package having
+// to know about host.
+func (e *RPCError) NotFound() bool { return e.Code == CodeNotFound }
+
 // IsNotFound reports whether err is cmux telling us the object is gone.
 func IsNotFound(err error) bool {
 	var rpcErr *RPCError

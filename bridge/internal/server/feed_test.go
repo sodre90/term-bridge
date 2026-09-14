@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/sodre90/cmux-bridge/internal/wire"
 )
 
 const fakeFeedScript = `#!/bin/sh
@@ -245,9 +247,14 @@ func TestTruncateForNotificationCollapsesAndCaps(t *testing.T) {
 }
 
 func TestAgentStatusLineKeepsOnlyRecognizedStatuses(t *testing.T) {
-	for _, keep := range []string{"Claude is waiting for your input", "Codex needs your permission"} {
-		if got := agentStatusLine(keep); got != keep {
-			t.Fatalf("agentStatusLine(%q) = %q, want it kept", keep, got)
+	// The host marks a preview it recognised as an agent status by setting
+	// Attention; only those previews are worth showing as a notification body.
+	for _, keep := range []wire.Workspace{
+		{Preview: "Claude is waiting for your input", Attention: "input"},
+		{Preview: "Codex needs your permission", Attention: "permission"},
+	} {
+		if got := agentStatusLine(keep); got != keep.Preview {
+			t.Fatalf("agentStatusLine(%q) = %q, want it kept", keep.Preview, got)
 		}
 	}
 	// The live-observed banner behind this whole fix, plus ordinary preview text.
@@ -256,7 +263,7 @@ func TestAgentStatusLineKeepsOnlyRecognizedStatuses(t *testing.T) {
 		"Build options trading system",
 		"",
 	} {
-		if got := agentStatusLine(drop); got != "" {
+		if got := agentStatusLine(wire.Workspace{Preview: drop}); got != "" {
 			t.Fatalf("agentStatusLine(%q) = %q, want it dropped", drop, got)
 		}
 	}

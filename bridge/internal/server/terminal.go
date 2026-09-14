@@ -12,7 +12,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"github.com/sodre90/cmux-bridge/internal/cmux"
+	"github.com/sodre90/cmux-bridge/internal/host"
 	"github.com/sodre90/cmux-bridge/internal/httpjson"
 	"github.com/sodre90/cmux-bridge/internal/metrics"
 	"github.com/sodre90/cmux-bridge/internal/wire"
@@ -184,7 +184,7 @@ func (s *Server) handleTerminal(w http.ResponseWriter, r *http.Request) {
 			if ctx.Err() != nil {
 				return false
 			}
-			if cmux.IsNotFound(err) {
+			if host.IsNotFound(err) {
 				slog.Warn("terminal: surface is gone", "surface_id", id, "dur_ms", time.Since(start).Milliseconds(), "err", err)
 				closeIfSurfaceGone(c, err)
 				return false
@@ -428,7 +428,7 @@ const closeWriteTimeout = time.Second
 // send it is ignored on purpose: the socket is already going away, and the
 // pre-existing behaviour (client retries) is the fallback.
 func closeIfSurfaceGone(c *websocket.Conn, err error) {
-	if !cmux.IsNotFound(err) {
+	if !host.IsNotFound(err) {
 		return
 	}
 	_ = c.WriteControl(
@@ -563,19 +563,16 @@ func (s *Server) terminalReadLoop(ctx context.Context, cancel context.CancelFunc
 		var rpcErr error
 		switch up.Type {
 		case "input":
-			_, rpcErr = s.cmux.Rpc(ctx, "mobile.terminal.input",
-				map[string]any{"surface_id": id, "text": up.Text})
+			rpcErr = s.host.Input(ctx, id, up.Text)
 			nudgePoll()
 		case "paste":
-			_, rpcErr = s.cmux.Rpc(ctx, "mobile.terminal.paste",
-				map[string]any{"surface_id": id, "text": up.Text})
+			rpcErr = s.host.Paste(ctx, id, up.Text)
 			nudgePoll()
 		case "attach":
 			rpcErr = s.attachImage(ctx, id, up)
 			nudgePoll()
 		case "resize":
-			_, rpcErr = s.cmux.Rpc(ctx, "mobile.terminal.viewport",
-				map[string]any{"surface_id": id, "columns": up.Columns, "rows": up.Rows})
+			rpcErr = s.host.Resize(ctx, id, up.Columns, up.Rows)
 		default:
 			continue
 		}
@@ -604,29 +601,19 @@ func (s *Server) terminalReadLoop(ctx context.Context, cancel context.CancelFunc
 // how long one replay may take.
 const replayTimeout = 20 * time.Second
 
-// fetchReplay calls mobile.terminal.replay and returns a wire.TerminalDown
-// (Type unset) holding the render grid and dimensions.
+// fetchReplay asks the host for the surface's render grid and returns a
+// wire.TerminalDown (Type unset) holding it and its dimensions.
 func (s *Server) fetchReplay(ctx context.Context, id string) (wire.TerminalDown, error) {
 	ctx, cancel := context.WithTimeout(ctx, replayTimeout)
 	defer cancel()
-	raw, err := s.cmux.Rpc(ctx, "mobile.terminal.replay",
-		map[string]any{"surface_id": id})
+	replay, err := s.host.Replay(ctx, id)
 	if err != nil {
 		return wire.TerminalDown{}, err
 	}
-	var top struct {
-		Columns    int             `json:"columns"`
-		Rows       int             `json:"rows"`
-		Seq        int             `json:"seq"`
-		RenderGrid json.RawMessage `json:"render_grid"`
-	}
-	if err := json.Unmarshal(raw, &top); err != nil {
-		return wire.TerminalDown{}, err
-	}
 	return wire.TerminalDown{
-		Grid:    top.RenderGrid,
-		Columns: top.Columns,
-		Rows:    top.Rows,
-		Seq:     int64(top.Seq),
+		Grid:    replay.Grid,
+		Columns: replay.Columns,
+		Rows:    replay.Rows,
+		Seq:     replay.Seq,
 	}, nil
 }

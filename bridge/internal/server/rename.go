@@ -28,10 +28,7 @@ func (s *Server) handleRenameWorkspace(w http.ResponseWriter, r *http.Request) {
 		httpjson.Error(w, http.StatusBadRequest, "missing title")
 		return
 	}
-	if _, err := s.cmux.Rpc(r.Context(), "workspace.rename", map[string]any{
-		"workspace_id": id,
-		"title":        req.Title,
-	}); err != nil {
+	if err := s.host.RenameWorkspace(r.Context(), id, req.Title); err != nil {
 		httpjson.Error(w, http.StatusBadGateway, "cmux rename failed")
 		return
 	}

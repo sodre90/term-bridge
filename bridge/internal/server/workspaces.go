@@ -7,26 +7,19 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/sodre90/cmux-bridge/internal/httpjson"
 	"github.com/sodre90/cmux-bridge/internal/wire"
 )
 
-// Every mutating route names its target by cmux UUID and refuses anything
-// else before an RPC is made: cmux's create methods fall back to the
-// window or pane focused on the Mac when a target is missing, which is
-// never what the phone meant.
-var uuidPattern = regexp.MustCompile(`^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$`)
-
-func isUUID(s string) bool { return uuidPattern.MatchString(s) }
-
-// pathUUID reads a path parameter that must be a cmux UUID, answering 400
-// itself when it is not.
-func pathUUID(w http.ResponseWriter, r *http.Request, name string) (string, bool) {
+// Every mutating route names its target by a well-formed host id and
+// refuses anything else before a backend call is made: cmux's create
+// methods fall back to the window or pane focused on the Mac when a target
+// is missing, which is never what the phone meant.
+func (s *Server) pathID(w http.ResponseWriter, r *http.Request, name string) (string, bool) {
 	id := r.PathValue(name)
-	if !isUUID(id) {
+	if !s.host.ValidID(id) {
 		httpjson.Error(w, http.StatusBadRequest, "invalid "+name)
 		return "", false
 	}
@@ -109,19 +102,9 @@ func (s *Server) handleCreateWorkspace(w http.ResponseWriter, r *http.Request) {
 		httpjson.Error(w, http.StatusBadRequest, "title too long")
 		return
 	}
-	params := map[string]any{"cwd": cwd, "focus": false}
-	if title != "" {
-		params["title"] = title
-	}
-	raw, err := s.cmux.Rpc(r.Context(), "workspace.create", params)
+	created, err := s.host.CreateWorkspace(r.Context(), cwd, title)
 	if err != nil {
 		slog.Warn("server: workspace.create failed", "err", err)
-		httpjson.Error(w, http.StatusBadGateway, "cmux workspace.create failed")
-		return
-	}
-	var created wire.CreateWorkspaceResponse
-	if err := json.Unmarshal(raw, &created); err != nil || created.WorkspaceID == "" {
-		slog.Warn("server: workspace.create reply unreadable", "err", err)
 		httpjson.Error(w, http.StatusBadGateway, "cmux workspace.create failed")
 		return
 	}
@@ -132,7 +115,7 @@ func (s *Server) handleCreateWorkspace(w http.ResponseWriter, r *http.Request) {
 // handleSelectWorkspace is POST /sessions/{id}/select: make the Mac show
 // this workspace and, when the body names one, focus a surface in it.
 func (s *Server) handleSelectWorkspace(w http.ResponseWriter, r *http.Request) {
-	id, ok := pathUUID(w, r, "id")
+	id, ok := s.pathID(w, r, "id")
 	if !ok {
 		return
 	}
@@ -144,17 +127,17 @@ func (s *Server) handleSelectWorkspace(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if req.SurfaceID != "" && !isUUID(req.SurfaceID) {
+	if req.SurfaceID != "" && !s.host.ValidID(req.SurfaceID) {
 		httpjson.Error(w, http.StatusBadRequest, "invalid surface_id")
 		return
 	}
-	if _, err := s.cmux.Rpc(r.Context(), "workspace.select", map[string]any{"workspace_id": id}); err != nil {
+	if err := s.host.SelectWorkspace(r.Context(), id); err != nil {
 		slog.Warn("server: workspace.select failed", "workspace", id, "err", err)
 		httpjson.Error(w, http.StatusBadGateway, "cmux workspace.select failed")
 		return
 	}
 	if req.SurfaceID != "" {
-		if _, err := s.cmux.Rpc(r.Context(), "surface.focus", map[string]any{"surface_id": req.SurfaceID}); err != nil {
+		if err := s.host.FocusSurface(r.Context(), req.SurfaceID); err != nil {
 			slog.Warn("server: surface.focus failed", "surface", req.SurfaceID, "err", err)
 			httpjson.Error(w, http.StatusBadGateway, "cmux surface.focus failed")
 			return
@@ -167,11 +150,11 @@ func (s *Server) handleSelectWorkspace(w http.ResponseWriter, r *http.Request) {
 // handleCloseWorkspace is DELETE /sessions/{id}. The phone confirms before
 // calling; the bridge closes what it is told.
 func (s *Server) handleCloseWorkspace(w http.ResponseWriter, r *http.Request) {
-	id, ok := pathUUID(w, r, "id")
+	id, ok := s.pathID(w, r, "id")
 	if !ok {
 		return
 	}
-	if _, err := s.cmux.Rpc(r.Context(), "workspace.close", map[string]any{"workspace_id": id}); err != nil {
+	if err := s.host.CloseWorkspace(r.Context(), id); err != nil {
 		slog.Warn("server: workspace.close failed", "workspace", id, "err", err)
 		httpjson.Error(w, http.StatusBadGateway, "cmux workspace.close failed")
 		return

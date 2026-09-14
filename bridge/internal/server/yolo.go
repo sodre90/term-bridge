@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/sodre90/cmux-bridge/internal/httpjson"
+	"github.com/sodre90/cmux-bridge/internal/wire"
 	"github.com/sodre90/cmux-bridge/internal/yolo"
 )
 
@@ -88,19 +89,19 @@ func (s *Server) replyPendingPermissions(ctx context.Context, items []pendingFee
 		if item.Kind != "permissionRequest" || item.Status != "pending" || canonicalPath(item.CWD) != wantCWD {
 			continue
 		}
-		if _, err := s.cmux.Rpc(ctx, "feed.permission.reply", map[string]any{
-			"request_id": item.RequestID,
-			"mode":       mode,
-		}); err == nil {
+		if err := s.host.FeedReply(ctx, wire.FeedKindPermissionRequest, item.RequestID,
+			map[string]any{"mode": mode}); err == nil {
 			resolvedAny = true
 		}
 	}
 	return resolvedAny
 }
 
-// canonicalPath resolves symlinks so paths reported through different cmux
-// RPCs can be compared for equality; a path that no longer exists (or any
-// other resolution failure) is returned unchanged rather than dropped.
+// canonicalPath resolves symlinks so two working directories can be compared
+// for equality regardless of how they were reported; a path that no longer
+// exists (or any other resolution failure) is returned unchanged rather than
+// dropped. The host already canonicalises what it hands us; this is the
+// belt to that brace.
 func canonicalPath(p string) string {
 	if resolved, err := filepath.EvalSymlinks(p); err == nil {
 		return resolved

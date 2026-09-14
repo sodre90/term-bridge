@@ -7,87 +7,33 @@ import (
 	"strings"
 
 	"github.com/sodre90/cmux-bridge/internal/httpjson"
+	"github.com/sodre90/cmux-bridge/internal/wire"
 )
 
-// FeedReply answers an agent prompt. Params is forwarded to cmux verbatim and
-// the required request_id is injected, so the precise cmux param names live in
-// the client and need not be hardcoded here.
-//
-// Confirmed live against `cmux rpc feed.permission.reply` (via its
-// invalid_params decode errors, with a fake request_id so nothing real was
-// ever affected): a "permissionRequest" reply's params is `mode`, one of
-// `once`, `always`, `all`, `bypass`, `deny` -- `once`/`deny` are a one-shot
-// manual reply, the other three are the recurring YOLO auto-modes (see
-// android's YoloMode). "question"'s `selections` was already confirmed live.
-// "exitPlan" is not yet confirmed against a real exit-plan prompt and may
-// need correcting the same way "permission" did.
+// FeedReply answers an agent prompt. Params are forwarded to the host
+// verbatim together with the required request_id; the host knows each
+// kind's own param names (see cmuxhost.FeedReply for the live-confirmed
+// cmux shapes).
 type FeedReply struct {
-	Kind      string         `json:"kind"`       // "permissionRequest" | "question" | "exitPlan"
-	RequestID string         `json:"request_id"` // required by cmux
+	Kind      string         `json:"kind"`       // wire.FeedKind*
+	RequestID string         `json:"request_id"` // required
 	Params    map[string]any `json:"params,omitempty"`
 }
 
-func feedMethod(kind string) (string, bool) {
-	switch kind {
-	case "permissionRequest":
-		return "feed.permission.reply", true
-	case "question":
-		return "feed.question.reply", true
-	case "exitPlan":
-		return "feed.exit_plan.reply", true
-	}
-	return "", false
-}
-
-// handleFeedPending returns the agent's pending blocking prompts by forwarding
-// cmux's feed.list with pending_only. The result is passed through as-is so
-// the app receives the full question structure (request_id, questions[].options[],
-// question_multi_select) it needs to render choices and reply -- except each
-// item's "cwd", which is rewritten to its canonical form (see
-// canonicalizeFeedCWDs) so it matches /sessions' Workspace.CWD byte-for-byte.
+// handleFeedPending returns the agent's pending blocking prompts as the host
+// produces them: the full question structure (request_id,
+// questions[].options[], question_multi_select) the app needs to render
+// choices and reply, with each item's cwd already matching /sessions'
+// Workspace.CWD byte-for-byte.
 func (s *Server) handleFeedPending(w http.ResponseWriter, r *http.Request) {
-	raw, err := s.cmux.Rpc(r.Context(), "feed.list", map[string]any{"pending_only": true})
+	body, err := s.host.PendingFeed(r.Context())
 	if err != nil {
 		httpjson.Error(w, http.StatusBadGateway, "cmux feed.list failed")
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(canonicalizeFeedCWDs(raw))
-}
-
-// canonicalizeFeedCWDs rewrites each pending item's "cwd" to its
-// symlink-resolved form, mirroring parseWorkspaces' canonicalization of
-// Workspace.CWD. cmux's feed.list and mobile.workspace.list disagree on
-// symlinks (e.g. /tmp/foo vs /private/tmp/foo -- see
-// resolvePendingPermission's doc comment, which hit this live), and the
-// app's own cwd-based item-to-workspace matching (pendingItemTarget in
-// SessionsLogic.kt) needs both sides normalized the same way to have any
-// chance of matching. Falls back to the raw bytes unchanged on any parse
-// failure -- a shape cmux might change shouldn't break the primary read.
-func canonicalizeFeedCWDs(raw []byte) []byte {
-	var root map[string]any
-	if err := json.Unmarshal(raw, &root); err != nil {
-		return raw
-	}
-	items, ok := root["items"].([]any)
-	if !ok {
-		return raw
-	}
-	for _, it := range items {
-		item, ok := it.(map[string]any)
-		if !ok {
-			continue
-		}
-		if cwd, ok := item["cwd"].(string); ok && cwd != "" {
-			item["cwd"] = canonicalPath(cwd)
-		}
-	}
-	out, err := json.Marshal(root)
-	if err != nil {
-		return raw
-	}
-	return out
+	_, _ = w.Write(body)
 }
 
 // pendingFeedItem is the subset of a `feed.list --pending_only` item this
@@ -116,7 +62,7 @@ type pendingFeedItem struct {
 // on any RPC/parse failure -- every caller treats "no pending item" and "could
 // not find out" the same way, by falling back rather than failing.
 func (s *Server) listPendingItems(ctx context.Context) []pendingFeedItem {
-	raw, err := s.cmux.Rpc(ctx, "feed.list", map[string]any{"pending_only": true})
+	raw, err := s.host.PendingFeed(ctx)
 	if err != nil {
 		return nil
 	}
@@ -191,7 +137,12 @@ func toolInputSummary(toolInput json.RawMessage) string {
 	if err := json.Unmarshal(toolInput, &args); err != nil {
 		return ""
 	}
-	return firstString(args, toolInputSummaryKeys...)
+	for _, k := range toolInputSummaryKeys {
+		if val, ok := args[k].(string); ok && val != "" {
+			return val
+		}
+	}
+	return ""
 }
 
 // maxNotificationBody bounds a push body in runes. A phone collapses a
@@ -220,8 +171,7 @@ func (s *Server) handleFeedReply(w http.ResponseWriter, r *http.Request) {
 		httpjson.Error(w, http.StatusBadRequest, "invalid json")
 		return
 	}
-	method, ok := feedMethod(fr.Kind)
-	if !ok {
+	if !wire.KnownFeedKind(fr.Kind) {
 		httpjson.Error(w, http.StatusBadRequest, "unknown kind")
 		return
 	}
@@ -229,13 +179,7 @@ func (s *Server) handleFeedReply(w http.ResponseWriter, r *http.Request) {
 		httpjson.Error(w, http.StatusBadRequest, "missing request_id")
 		return
 	}
-	params := map[string]any{}
-	for k, v := range fr.Params {
-		params[k] = v
-	}
-	params["request_id"] = fr.RequestID
-
-	if _, err := s.cmux.Rpc(r.Context(), method, params); err != nil {
+	if err := s.host.FeedReply(r.Context(), fr.Kind, fr.RequestID, fr.Params); err != nil {
 		httpjson.Error(w, http.StatusBadGateway, "cmux reply failed")
 		return
 	}

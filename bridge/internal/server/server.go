@@ -11,13 +11,15 @@ import (
 	"github.com/sodre90/cmux-bridge/internal/auth"
 	"github.com/sodre90/cmux-bridge/internal/cmux"
 	"github.com/sodre90/cmux-bridge/internal/e2e"
+	"github.com/sodre90/cmux-bridge/internal/host"
+	"github.com/sodre90/cmux-bridge/internal/host/cmuxhost"
 	"github.com/sodre90/cmux-bridge/internal/ratelimit"
 	"github.com/sodre90/cmux-bridge/internal/yolo"
 )
 
 // Server holds the dependencies shared by all handlers.
 type Server struct {
-	cmux         *cmux.Client
+	host         host.Host
 	store        *auth.Store
 	hub          *hub
 	terminalPoll time.Duration // how often WS /terminal re-replays for output
@@ -89,10 +91,16 @@ func (s *Server) SetPusher(p Pusher, tenantID string) {
 	s.directTenantID = tenantID
 }
 
-// New constructs a Server.
+// New constructs a Server fronting cmux. Kept as the one-line spelling
+// every caller and test already uses; NewWithHost is the general form.
 func New(c *cmux.Client, s *auth.Store) *Server {
+	return NewWithHost(cmuxhost.New(c), s)
+}
+
+// NewWithHost constructs a Server over any terminal backend.
+func NewWithHost(h host.Host, s *auth.Store) *Server {
 	return &Server{
-		cmux:             c,
+		host:             h,
 		store:            s,
 		hub:              newHub(),
 		terminalPoll:     250 * time.Millisecond,

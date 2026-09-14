@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"slices"
 
+	"github.com/sodre90/cmux-bridge/internal/host"
 	"github.com/sodre90/cmux-bridge/internal/httpjson"
 	"github.com/sodre90/cmux-bridge/internal/wire"
 )
@@ -23,11 +24,11 @@ func splitDirection(placement string) (string, bool) {
 }
 
 // handleCreatePane is POST /sessions/{id}/panes: a new terminal beside the
-// surface the phone is viewing (surface.split) or as a tab in its pane
-// (surface.create). Either way cmux is told exactly which surface or pane,
-// and the new terminal does not take focus on the Mac.
+// surface the phone is viewing (a split) or as a tab in its pane. Either way
+// the host is told exactly which surface or pane, and the new terminal does
+// not take focus on the Mac.
 func (s *Server) handleCreatePane(w http.ResponseWriter, r *http.Request) {
-	id, ok := pathUUID(w, r, "id")
+	id, ok := s.pathID(w, r, "id")
 	if !ok {
 		return
 	}
@@ -37,7 +38,7 @@ func (s *Server) handleCreatePane(w http.ResponseWriter, r *http.Request) {
 		httpjson.Error(w, http.StatusBadRequest, "invalid json")
 		return
 	}
-	if !isUUID(req.SurfaceID) {
+	if !s.host.ValidID(req.SurfaceID) {
 		httpjson.Error(w, http.StatusBadRequest, "invalid surface_id")
 		return
 	}
@@ -47,30 +48,24 @@ func (s *Server) handleCreatePane(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var (
-		raw []byte
-		err error
+		created wire.CreatePaneResponse
+		err     error
 	)
 	if isSplit {
-		raw, err = s.cmux.Rpc(r.Context(), "surface.split", map[string]any{
-			"surface_id": req.SurfaceID,
-			"direction":  direction,
-			"focus":      false,
-		})
+		created, err = s.host.SplitPane(r.Context(), req.SurfaceID, direction)
 	} else {
-		raw, err = s.createTab(r.Context(), id, req.SurfaceID)
+		created, err = s.createTab(r.Context(), id, req.SurfaceID)
 	}
 	if errors.Is(err, errSurfaceNotInWorkspace) {
 		httpjson.Error(w, http.StatusNotFound, "surface not in workspace")
 		return
 	}
-	if err != nil {
-		slog.Warn("server: create pane failed", "workspace", id, "surface", req.SurfaceID, "placement", req.Placement, "err", err)
-		httpjson.Error(w, http.StatusBadGateway, "cmux create pane failed")
+	if errors.Is(err, host.ErrUnsupported) {
+		httpjson.Error(w, http.StatusBadRequest, "unsupported placement")
 		return
 	}
-	var created wire.CreatePaneResponse
-	if err := json.Unmarshal(raw, &created); err != nil || created.SurfaceID == "" {
-		slog.Warn("server: create pane reply unreadable", "err", err)
+	if err != nil {
+		slog.Warn("server: create pane failed", "workspace", id, "surface", req.SurfaceID, "placement", req.Placement, "err", err)
 		httpjson.Error(w, http.StatusBadGateway, "cmux create pane failed")
 		return
 	}
@@ -79,33 +74,28 @@ func (s *Server) handleCreatePane(w http.ResponseWriter, r *http.Request) {
 }
 
 // createTab finds the pane holding surfaceID and adds a terminal tab to it.
-func (s *Server) createTab(ctx context.Context, workspaceID, surfaceID string) (json.RawMessage, error) {
-	panes, err := s.listPanes(ctx, workspaceID)
+func (s *Server) createTab(ctx context.Context, workspaceID, surfaceID string) (wire.CreatePaneResponse, error) {
+	panes, err := s.host.ListPanes(ctx, workspaceID)
 	if err != nil {
-		return nil, err
+		return wire.CreatePaneResponse{}, err
 	}
-	i := slices.IndexFunc(panes, func(p paneEntry) bool { return slices.Contains(p.SurfaceIDs, surfaceID) })
+	i := slices.IndexFunc(panes, func(p host.Pane) bool { return slices.Contains(p.SurfaceIDs, surfaceID) })
 	if i < 0 {
-		return nil, errSurfaceNotInWorkspace
+		return wire.CreatePaneResponse{}, errSurfaceNotInWorkspace
 	}
-	return s.cmux.Rpc(ctx, "surface.create", map[string]any{
-		"workspace_id": workspaceID,
-		"pane_id":      panes[i].ID,
-		"type":         "terminal",
-		"focus":        false,
-	})
+	return s.host.CreateTab(ctx, workspaceID, panes[i].ID)
 }
 
 // handleCloseSurface is DELETE /sessions/{id}/panes/{surfaceId}.
 func (s *Server) handleCloseSurface(w http.ResponseWriter, r *http.Request) {
-	if _, ok := pathUUID(w, r, "id"); !ok {
+	if _, ok := s.pathID(w, r, "id"); !ok {
 		return
 	}
-	surfaceID, ok := pathUUID(w, r, "surfaceId")
+	surfaceID, ok := s.pathID(w, r, "surfaceId")
 	if !ok {
 		return
 	}
-	if _, err := s.cmux.Rpc(r.Context(), "surface.close", map[string]any{"surface_id": surfaceID}); err != nil {
+	if err := s.host.CloseSurface(r.Context(), surfaceID); err != nil {
 		slog.Warn("server: surface.close failed", "surface", surfaceID, "err", err)
 		httpjson.Error(w, http.StatusBadGateway, "cmux surface.close failed")
 		return
