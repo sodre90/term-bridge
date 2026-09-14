@@ -1,4 +1,4 @@
-# Podman Quadlet unit for cmux-relay — systemd manages the container directly,
+# Podman Quadlet unit for term-bridge-relay — systemd manages the container directly,
 # with no long-running compose process and no separate restart policy.
 #
 # Requires podman 4.4+ (quadlet). On older podman, or on Docker, use
@@ -7,12 +7,12 @@
 #
 # Install as a rootless USER unit (recommended — the relay needs no root):
 #
-#   podman build --build-arg VERSION=0.2.0 -t localhost/cmux-relay:latest -f deploy/Containerfile .
+#   podman build --build-arg VERSION=0.2.0 -t localhost/term-bridge-relay:latest -f deploy/Containerfile .
 #   mkdir -p ~/.config/containers/systemd
-#   cp deploy/cmux-relay.container ~/.config/containers/systemd/
+#   cp deploy/term-bridge-relay.container ~/.config/containers/systemd/
 #   # edit the config.toml path below to point at your own copy
 #   systemctl --user daemon-reload
-#   systemctl --user start cmux-relay
+#   systemctl --user start term-bridge-relay
 #   loginctl enable-linger $USER      # so it survives logout / starts at boot
 #
 # For a system-wide unit instead, drop this in /etc/containers/systemd/ and use
@@ -20,13 +20,13 @@
 # the generated unit directly — edit this file and re-run daemon-reload.
 
 [Unit]
-Description=cmux-relay - rendezvous relay for remote cmux access
+Description=term-bridge-relay - rendezvous relay for remote terminal access
 After=network-online.target
 Wants=network-online.target
 
 [Container]
-Image=localhost/cmux-relay:latest
-ContainerName=cmux-relay
+Image=localhost/term-bridge-relay:latest
+ContainerName=term-bridge-relay
 # The image is built locally, not pulled from a registry — build it on the host
 # that runs it (see Containerfile: do not ship it across architectures).
 Pull=never
@@ -38,11 +38,11 @@ Pull=never
 PublishPort=127.0.0.1:8765:8765
 
 # Point the first path at your own 0600 config.toml (from relay.example.toml).
-Volume=/home/YOUR_USER/cmux-relay/config.toml:/etc/cmux-relay/config.toml:ro,Z
+Volume=/home/YOUR_USER/term-bridge-relay/config.toml:/etc/term-bridge-relay/config.toml:ro,Z
 # Named volume holding the device/token store. Migrating from docker-compose?
-# Use the volume compose already created — cmux-relay_relay-data — instead of
+# Use the volume compose already created — term-bridge-relay-data — instead of
 # this name, or the relay comes up with no paired devices.
-Volume=cmux-relay-data:/data
+Volume=term-bridge-relay-data:/data
 
 # Liveness probe (mirrors the compose healthcheck).
 HealthCmd=/usr/bin/wget -qO- http://127.0.0.1:8765/healthz

@@ -1,21 +1,21 @@
-# cmux-bridge agent config (Mac). Copy to ~/.config/cmux-bridge/agent.toml.
-relay_url   = "wss://cmux.example.com/agent/tunnel"
-client_cert = "~/.config/cmux-bridge/agent.crt"     # CN=agent:<tenant-id>; written by self-registration (see bootstrap_url below)
-client_key  = "~/.config/cmux-bridge/agent.key"
+# term-bridge agent config (Mac). Copy to ~/.config/term-bridge/agent.toml.
+relay_url   = "wss://term-bridge.example.com/agent/tunnel"
+client_cert = "~/.config/term-bridge/agent.crt"     # CN=agent:<tenant-id>; written by self-registration (see bootstrap_url below)
+client_key  = "~/.config/term-bridge/agent.key"
 ca_cert     = ""                                    # CA that signed the nginx server cert; leave empty for a public CA (Let's Encrypt)
 relay_token = "CHANGE_ME_long_random_secret"        # must match the relay
 cmux_bin    = "cmux"
-# bootstrap_url = "https://cmux.example.com:8444/tenants/register"  # used once, on first run
+# bootstrap_url = "https://term-bridge.example.com:8444/tenants/register"  # used once, on first run
 
 # Direct (Tailscale) mode -- optional, additive to the relay above. See
 # bridge/README.md#direct-tailscale-mode for the one-time Tailscale setup
 # this requires.
 # direct_listen     = ":8443"
-# direct_auth_store = "~/.config/cmux-bridge/direct-auth.db"
+# direct_auth_store = "~/.config/term-bridge/direct-auth.db"
 # Direct-mode push. Same Firebase project as the relay's, but set here too
 # because the agent keeps its own device store. Empty disables direct push.
 # fcm_project_id  = "your-firebase-project-id"
-# fcm_credentials = "~/.config/cmux-bridge/fcm-service-account.json"
+# fcm_credentials = "~/.config/term-bridge/fcm-service-account.json"
 # The client half, handed to a phone at pairing so the app can initialise FCM
 # without a google-services.json compiled into it. Read them out of the
 # google-services.json for the Android app whose package_name is
@@ -38,4 +38,4 @@ cmux_bin    = "cmux"
 # Where the agent writes its own log. It rotates this file itself (8MB, 5
 # compressed generations, 30 days) because launchd will not. Set it to "" to
 # log to stderr instead and leave the file to whoever supervises the process.
-# log_file = "~/Library/Logs/cmux-bridge.log"
+# log_file = "~/Library/Logs/term-bridge.log"

@@ -1,4 +1,4 @@
-# cmux-relay — the home-server rendezvous for remote cmux access.
+# term-bridge-relay — the home-server rendezvous for remote terminal access.
 #
 # SECURITY: the relay trusts nginx to terminate mutual TLS and pass the client
 # cert CN in X-Client-Cert-CN. The port defaults to loopback ONLY (127.0.0.1).
@@ -14,13 +14,13 @@ services:
     build:
       context: .
       dockerfile: deploy/Containerfile
-    image: localhost/cmux-relay:latest
-    container_name: cmux-relay
+    image: localhost/term-bridge-relay:latest
+    container_name: term-bridge-relay
     restart: unless-stopped
     ports:
       - "${RELAY_BIND:-127.0.0.1}:${RELAY_PORT:-8765}:8765"
     volumes:
-      - ./config.toml:/etc/cmux-relay/config.toml:ro,Z
+      - ./config.toml:/etc/term-bridge-relay/config.toml:ro,Z
       - relay-data:/data
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8765/healthz"]

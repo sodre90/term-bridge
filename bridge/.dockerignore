@@ -7,5 +7,5 @@ config.toml
 devices.json
 *-service-account.json
 .env
-/cmux-bridge
-/cmux-relay
+/term-bridge
+/term-bridge-relay

@@ -1,17 +1,17 @@
-# cmux-bridge agent config for a Linux host running tmux. Copy to
-# ~/.config/cmux-bridge/agent.toml on the box; run the agent, tmux and your
+# term-bridge agent config for a Linux host running tmux. Copy to
+# ~/.config/term-bridge/agent.toml on the box; run the agent, tmux and your
 # agents (Claude Code, ...) as the same Unix user, so the agent can reach the
 # tmux server socket.
 host        = "tmux"
 tmux_bin    = "tmux"
 # tmux_socket = "~/.tmux/agent.sock"                # only for a server started with `tmux -S`
 
-relay_url   = "wss://cmux.example.com/agent/tunnel"
-client_cert = "~/.config/cmux-bridge/agent.crt"     # CN=agent:<tenant-id>; written by self-registration (see bootstrap_url below)
-client_key  = "~/.config/cmux-bridge/agent.key"
+relay_url   = "wss://term-bridge.example.com/agent/tunnel"
+client_cert = "~/.config/term-bridge/agent.crt"     # CN=agent:<tenant-id>; written by self-registration (see bootstrap_url below)
+client_key  = "~/.config/term-bridge/agent.key"
 ca_cert     = ""                                    # CA that signed the nginx server cert; leave empty for a public CA (Let's Encrypt)
 relay_token = "CHANGE_ME_long_random_secret"        # must match the relay
-# bootstrap_url = "https://cmux.example.com:8444/tenants/register"  # used once, on first run
+# bootstrap_url = "https://term-bridge.example.com:8444/tenants/register"  # used once, on first run
 
 # A Linux agent is a tenant of its own on the relay, separate from a Mac's:
 # the phone pairs with it independently and switches between hosts.
@@ -19,9 +19,9 @@ relay_token = "CHANGE_ME_long_random_secret"        # must match the relay
 # Direct (Tailscale) mode and direct-mode push work exactly as on the Mac;
 # see agent.example.toml. Leave them off unless the box is on the tailnet.
 # direct_listen     = ":8443"
-# direct_auth_store = "~/.config/cmux-bridge/direct-auth.db"
+# direct_auth_store = "~/.config/term-bridge/direct-auth.db"
 
 # On Linux the default is to log to stderr, which the shipped systemd user
-# unit (cmux-bridge-agent.service) sends to journald; set a path only when
+# unit (term-bridge-agent.service) sends to journald; set a path only when
 # running the agent outside systemd.
 # log_file = ""

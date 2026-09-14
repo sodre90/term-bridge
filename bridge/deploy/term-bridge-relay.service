@@ -1,0 +1,17 @@
+[Unit]
+Description=term-bridge-relay (rendezvous for the host agents and app devices)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/term-bridge-relay serve --config /etc/term-bridge-relay/config.toml
+Restart=always
+RestartSec=2
+# Binds loopback only; nginx is the public edge.
+NoNewPrivileges=true
+ProtectSystem=strict
+StateDirectory=term-bridge-relay
+ReadWritePaths=/var/lib/term-bridge-relay
+
+[Install]
+WantedBy=multi-user.target

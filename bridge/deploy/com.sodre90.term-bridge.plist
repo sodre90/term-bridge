@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
-  cmux-bridge agent LaunchAgent (v2 relay topology). The Mac runs in "agent"
+  term-bridge agent LaunchAgent (v2 relay topology). The Mac runs in "agent"
   mode: it dials the relay and serves cmux over the tunnel. Reads
-  ~/.config/cmux-bridge/agent.toml (see deploy/agent.example.toml).
+  ~/.config/term-bridge/agent.toml (see deploy/agent.example.toml).
 
   (Legacy LAN-direct mode: replace the "agent" argument with "serve" to expose
   the bridge directly behind your own nginx, without a relay.)
@@ -12,11 +12,11 @@
   per-user cmux socket):
 
     1. Edit the two REPLACE_ME paths below (binary path + your home dir).
-    2. cp com.sodre90.cmux-bridge.plist ~/Library/LaunchAgents/
-    3. launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.sodre90.cmux-bridge.plist
-    4. launchctl kickstart -k gui/$(id -u)/com.sodre90.cmux-bridge
+    2. cp com.sodre90.term-bridge.plist ~/Library/LaunchAgents/
+    3. launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.sodre90.term-bridge.plist
+    4. launchctl kickstart -k gui/$(id -u)/com.sodre90.term-bridge
 
-  Logs: ~/Library/Logs/cmux-bridge.log -- written and rotated by the agent
+  Logs: ~/Library/Logs/term-bridge.log -- written and rotated by the agent
   itself (8MB x 5 compressed generations; see log_file in agent.toml). The
   two paths below are deliberately a DIFFERENT file: launchd holds a plain
   append fd on whatever they name and never rolls it, so it must not be the
@@ -24,19 +24,19 @@
   before the config is read, and stays a few KB.
 
   Upgrading from a build before log rotation: reinstall this plist
-  (launchctl bootout gui/$(id -u)/com.sodre90.cmux-bridge, cp, bootstrap
+  (launchctl bootout gui/$(id -u)/com.sodre90.term-bridge, cp, bootstrap
   again). Leaving the old plist in place is not fatal -- launchd's append fd
-  simply follows cmux-bridge.log into the first rotated generation -- but
+  simply follows term-bridge.log into the first rotated generation -- but
   panics then land in a compressed backup instead of the launchd log.
 -->
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.sodre90.cmux-bridge</string>
+    <string>com.sodre90.term-bridge</string>
 
     <key>ProgramArguments</key>
     <array>
-        <string>REPLACE_ME/cmux-bridge</string>
+        <string>REPLACE_ME/term-bridge</string>
         <string>agent</string>
     </array>
 
@@ -53,8 +53,8 @@
     </dict>
 
     <key>StandardOutPath</key>
-    <string>REPLACE_ME_HOME/Library/Logs/cmux-bridge.launchd.log</string>
+    <string>REPLACE_ME_HOME/Library/Logs/term-bridge.launchd.log</string>
     <key>StandardErrorPath</key>
-    <string>REPLACE_ME_HOME/Library/Logs/cmux-bridge.launchd.log</string>
+    <string>REPLACE_ME_HOME/Library/Logs/term-bridge.launchd.log</string>
 </dict>
 </plist>

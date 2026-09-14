@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ---- build -------------------------------------------------------------------
-# Builds cmux-relay as a static, CGO-free binary so the runtime image stays
+# Builds term-bridge-relay as a static, CGO-free binary so the runtime image stays
 # tiny. Built for the builder's native architecture — build this image on the
 # host it runs on (the Linux server); do not ship the image across architectures.
 FROM golang:1.26-bookworm AS build
@@ -17,13 +17,13 @@ COPY . .
 # in-repo value, which is deliberately a -dev string -- an unstamped build IS
 # a dev build, and saying so beats defaulting to a number that then drifts
 # from internal/version/version.go. Pass --build-arg VERSION=0.2.0 (or
-# VERSION: in compose) when building a release, or `cmux-relay version`
+# VERSION: in compose) when building a release, or `term-bridge-relay version`
 # reports X.Y.Z-dev for an image built from a release tag and there is no way
 # to tell what is deployed (cmux-app-xsw).
 ARG VERSION=
 RUN CGO_ENABLED=0 go build -trimpath \
       -ldflags="-s -w ${VERSION:+-X github.com/sodre90/term-bridge/internal/version.v=$VERSION}" \
-      -o /out/cmux-relay ./cmd/term-bridge-relay
+      -o /out/term-bridge-relay ./cmd/term-bridge-relay
 
 # ---- runtime -----------------------------------------------------------------
 FROM alpine:3.20
@@ -33,8 +33,8 @@ FROM alpine:3.20
 # without any in-container user juggling. /data is created so a fresh named
 # volume has a mountpoint and the store is written there at runtime.
 RUN apk add --no-cache ca-certificates && mkdir -p /data
-COPY --from=build /out/cmux-relay /usr/local/bin/cmux-relay
+COPY --from=build /out/term-bridge-relay /usr/local/bin/term-bridge-relay
 EXPOSE 8765
-# config.toml is bind-mounted at /etc/cmux-relay/config.toml (see compose).
-ENTRYPOINT ["/usr/local/bin/cmux-relay"]
-CMD ["serve", "--config", "/etc/cmux-relay/config.toml"]
+# config.toml is bind-mounted at /etc/term-bridge-relay/config.toml (see compose).
+ENTRYPOINT ["/usr/local/bin/term-bridge-relay"]
+CMD ["serve", "--config", "/etc/term-bridge-relay/config.toml"]

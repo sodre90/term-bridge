@@ -1,22 +1,22 @@
-# cmux-relay config (home server). Copy to /etc/cmux-relay/config.toml.
+# term-bridge-relay config (home server). Copy to /etc/term-bridge-relay/config.toml.
 #
 # ca_cert/ca_key are set explicitly below (rather than left to default under
-# ~/.config/cmux-relay) because deploy/cmux-relay.service runs with
-# ProtectSystem=strict + StateDirectory=cmux-relay: only /var/lib/cmux-relay
+# ~/.config/term-bridge-relay) because deploy/term-bridge-relay.service runs with
+# ProtectSystem=strict + StateDirectory=term-bridge-relay: only /var/lib/term-bridge-relay
 # is writable, so a ~/.config default would fail to create the CA on first
-# run. If you're running cmux-relay outside that unit (no hardening), the
+# run. If you're running term-bridge-relay outside that unit (no hardening), the
 # ~/.config default is fine and these two lines are unnecessary.
 listen      = "127.0.0.1:8765"                 # loopback; nginx is the edge
-token_store = "/var/lib/cmux-relay/store.db"
+token_store = "/var/lib/term-bridge-relay/store.db"
 relay_token = "CHANGE_ME_long_random_secret"    # shared with the Mac agent
 edge_token  = ""                                # if nginx is on another host: a secret it must send in X-Edge-Token (empty = off, for a loopback relay)
-ca_cert     = "/var/lib/cmux-relay/ca.crt"      # the relay's own CA, auto-created on first run if absent
-ca_key      = "/var/lib/cmux-relay/ca.key"
+ca_cert     = "/var/lib/term-bridge-relay/ca.crt"      # the relay's own CA, auto-created on first run if absent
+ca_key      = "/var/lib/term-bridge-relay/ca.key"
 
 # Push (optional): leave the sender pair (fcm_project_id + fcm_credentials)
 # empty to disable sending.
 # fcm_project_id  = "your-firebase-project-id"
-# fcm_credentials = "/etc/cmux-relay/fcm-service-account.json"
+# fcm_credentials = "/etc/term-bridge-relay/fcm-service-account.json"
 # The client half, handed to a phone at pairing so the app can initialise FCM
 # without a google-services.json compiled into it. Read them out of the
 # google-services.json for the Android app whose package_name is
