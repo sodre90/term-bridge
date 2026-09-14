@@ -169,10 +169,10 @@ fun CmuxNavHost(
         composable(Routes.SETTINGS) {
             val relayConfigured = remember(
                 forgetGeneration
-            ) { container.settings.bridgeConfig(ConnectionSlot.RELAY) != null }
+            ) { container.selectedHost().bridgeConfig(ConnectionSlot.RELAY) != null }
             val directConfigured = remember(
                 forgetGeneration
-            ) { container.settings.bridgeConfig(ConnectionSlot.DIRECT) != null }
+            ) { container.selectedHost().bridgeConfig(ConnectionSlot.DIRECT) != null }
             val bridgeNotConfigured = stringResource(R.string.error_bridge_not_configured)
             val testPushFailed = stringResource(R.string.error_test_push_failed)
             val testPushVm: ConnectionSettingsViewModel = viewModel(
@@ -208,7 +208,7 @@ fun CmuxNavHost(
                 bridgeVersion = bridgeVersion,
                 onPair = { slot -> navController.navigate(Routes.pair(slot)) },
                 onForget = { slot ->
-                    container.forgetSlot(slot)
+                    container.forgetSlot(container.selectedHost().host, slot)
                     forgetGeneration++
                 },
                 onSendTestPush = testPushVm::sendTestPush,

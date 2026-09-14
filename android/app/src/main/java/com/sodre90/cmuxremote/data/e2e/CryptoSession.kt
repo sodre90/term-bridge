@@ -1,11 +1,10 @@
 package com.sodre90.cmuxremote.data.e2e
 
-import android.content.Context
 import android.content.SharedPreferences
 import android.util.Base64
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
 import com.sodre90.cmuxremote.data.ConnectionSlot
+import com.sodre90.cmuxremote.data.HostId
+import com.sodre90.cmuxremote.data.hostSlotKey
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -52,23 +51,22 @@ interface PairedSession {
 }
 
 /**
- * One paired-agent session for [slot]: the derived shared secret, a durable
- * monotonic send counter, and the sliding-window receive gate. The phone
- * pairs with exactly one agent per slot at a time -- re-pairing that slot
- * overwrites its own record, but the other slot's session is untouched
- * (both slots' keys share one prefs file, distinguished only by prefix).
+ * One paired-agent session for ([host], [slot]): the derived shared secret, a
+ * durable monotonic send counter, and the sliding-window receive gate. The
+ * phone holds exactly one session per host and slot at a time -- re-pairing
+ * that slot overwrites its own record, but every other session is untouched
+ * (all of them share one prefs file, distinguished only by prefix).
  */
-class CryptoSession internal constructor(
+class CryptoSession(
     private val prefs: SharedPreferences,
+    private val host: HostId,
     private val slot: ConnectionSlot,
 ) : PairedSession {
-
-    constructor(context: Context, slot: ConnectionSlot) : this(encryptedPrefs(context), slot)
 
     // In-memory mirror of the send counter and replay window, so the hot
     // path (once per outbound keystroke / inbound frame) never re-decrypts
     // these from EncryptedSharedPreferences. Every method that touches
-    // either field -- including setPairing/clear/absorbLegacyIfTarget, not
+    // either field -- including setPairing/clear, not
     // just the hot-path nextSendCounter/validateAndCommitRecvCounter --
     // synchronizes on `this` and routes its prefs write through writeScope
     // (persist() or the blocking persistDurably()), so (a) callers on
@@ -127,54 +125,6 @@ class CryptoSession internal constructor(
             editor.commit()
         }
         runBlocking { job.join() }
-    }
-
-    /**
-     * Migrates the pre-dual-pairing single e2e session record into this
-     * instance's slot, if [isMigrationTarget] is true. AppContainer decides
-     * this once (from [com.sodre90.cmuxremote.data.Settings.migrateLegacyIfNeeded]'s
-     * result), since a CryptoSession has no way to see the base URL its legacy
-     * pairing belonged to and infer the right slot on its own. No-op if
-     * there's no legacy record. Self-terminating: always clears the legacy
-     * keys the first time it finds data. The migrate-or-not decision and the
-     * legacy-record shape are factored into [absorbLegacyIfTargetInternal]
-     * so a JVM test can exercise them against in-memory maps; this method
-     * keeps only what needs the real prefs/in-memory-cache/writeScope.
-     */
-    fun absorbLegacyIfTarget(isMigrationTarget: Boolean) {
-        val record = absorbLegacyIfTargetInternal(
-            isMigrationTarget = isMigrationTarget,
-            hasLegacyRecord = { prefs.contains(KEY_SHARED_SECRET) },
-            readLegacyRecord = {
-                LegacySessionRecord(
-                    peerPublicKeyB64 = prefs.getString(KEY_PEER_PUBLIC_KEY, null),
-                    sharedSecretB64 = requireNotNull(prefs.getString(KEY_SHARED_SECRET, null)),
-                    sendCounter = prefs.getLong(KEY_SEND_COUNTER, 0L),
-                    recvHighest = prefs.getLong(KEY_RECV_HIGHEST, -1L),
-                    recvWindowBits = prefs.getLong(KEY_RECV_WINDOW_BITS, 0L),
-                )
-            },
-            applyMigration = { record ->
-                prefs.edit()
-                    .putString(key(KEY_PEER_PUBLIC_KEY), record.peerPublicKeyB64)
-                    .putString(key(KEY_SHARED_SECRET), record.sharedSecretB64)
-                    .remove(KEY_PEER_PUBLIC_KEY)
-                    .remove(KEY_SHARED_SECRET)
-                    .remove(KEY_SEND_COUNTER)
-                    .remove(KEY_RECV_HIGHEST)
-                    .remove(KEY_RECV_WINDOW_BITS)
-                    .apply()
-            },
-        ) ?: return
-        synchronized(this) {
-            sendCounter = record.sendCounter
-            replayWindow = ReplayWindow(record.recvHighest, record.recvWindowBits)
-        }
-        persist {
-            putLong(key(KEY_SEND_COUNTER), record.sendCounter)
-            putLong(key(KEY_RECV_HIGHEST), record.recvHighest)
-            putLong(key(KEY_RECV_WINDOW_BITS), record.recvWindowBits)
-        }
     }
 
     fun isPaired(): Boolean = prefs.contains(key(KEY_SHARED_SECRET))
@@ -239,8 +189,8 @@ class CryptoSession internal constructor(
         plaintext
     }
 
-    /** Wipes this slot's session only -- used when re-pairing this slot. The
-     *  other slot's session (sharing the same prefs file) is untouched. */
+    /** Wipes this session only -- used when forgetting this slot. Every other
+     *  session (sharing the same prefs file) is untouched. */
     fun clear() {
         synchronized(this) {
             prefs.edit()
@@ -257,65 +207,14 @@ class CryptoSession internal constructor(
         }
     }
 
-    private fun key(base: String) = "${slot.name.lowercase()}_$base"
+    private fun key(base: String) = hostSlotKey(host, slot, base)
 
-    private companion object {
+    companion object {
+        const val PREFS_NAME = "cmux_e2e_session"
         const val KEY_PEER_PUBLIC_KEY = "device_public_key_b64"
         const val KEY_SHARED_SECRET = "shared_secret_b64"
         const val KEY_SEND_COUNTER = "send_counter"
         const val KEY_RECV_HIGHEST = "recv_highest"
         const val KEY_RECV_WINDOW_BITS = "recv_window_bits"
     }
-}
-
-/**
- * The keystore-backed store [CryptoSession] uses in the app. It is built here
- * rather than inline in the constructor so that a test can hand [CryptoSession]
- * a plain SharedPreferences instead: the counters and replay window are the
- * part worth testing, and there is no AndroidKeyStore off-device to build a
- * MasterKey against (cmux-app-fdl).
- */
-private const val PREFS_NAME = "cmux_e2e_session"
-
-private fun encryptedPrefs(context: Context): SharedPreferences {
-    val masterKey = MasterKey.Builder(context)
-        .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-        .build()
-    return EncryptedSharedPreferences.create(
-        context,
-        PREFS_NAME,
-        masterKey,
-        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-    )
-}
-
-/** The legacy pre-dual-pairing e2e session fields [absorbLegacyIfTargetInternal]
- *  moves into whichever slot's [CryptoSession] is the migration target. */
-internal data class LegacySessionRecord(
-    val peerPublicKeyB64: String?,
-    val sharedSecretB64: String,
-    val sendCounter: Long,
-    val recvHighest: Long,
-    val recvWindowBits: Long,
-)
-
-/** Free function form of [CryptoSession.absorbLegacyIfTarget], parameterized over
- *  plain read/write callbacks so a JVM test can exercise it against
- *  in-memory maps instead of real EncryptedSharedPreferences -- mirrors
- *  [com.sodre90.cmuxremote.data.pairing.commitInternal]'s injectable-I/O
- *  pattern. Returns the migrated record (for the caller to also update its
- *  own in-memory counter cache), or null if [isMigrationTarget] is false or
- *  there was nothing to migrate. */
-internal fun absorbLegacyIfTargetInternal(
-    isMigrationTarget: Boolean,
-    hasLegacyRecord: () -> Boolean,
-    readLegacyRecord: () -> LegacySessionRecord,
-    applyMigration: (LegacySessionRecord) -> Unit,
-): LegacySessionRecord? {
-    if (!isMigrationTarget) return null
-    if (!hasLegacyRecord()) return null
-    val record = readLegacyRecord()
-    applyMigration(record)
-    return record
 }

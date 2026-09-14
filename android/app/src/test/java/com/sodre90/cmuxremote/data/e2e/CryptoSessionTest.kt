@@ -3,6 +3,7 @@ package com.sodre90.cmuxremote.data.e2e
 import android.app.Application
 import android.content.Context
 import com.sodre90.cmuxremote.data.ConnectionSlot
+import com.sodre90.cmuxremote.data.HostId
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -42,7 +43,7 @@ class CryptoSessionTest {
     private fun session(slot: ConnectionSlot = ConnectionSlot.RELAY): CryptoSession {
         val prefs = RuntimeEnvironment.getApplication()
             .getSharedPreferences("cmux_e2e_session_test", Context.MODE_PRIVATE)
-        return CryptoSession(prefs, slot)
+        return CryptoSession(prefs, HostId("test-host"), slot)
     }
 
     private fun paired(slot: ConnectionSlot = ConnectionSlot.RELAY): CryptoSession =

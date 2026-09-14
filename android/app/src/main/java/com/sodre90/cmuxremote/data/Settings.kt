@@ -2,34 +2,26 @@ package com.sodre90.cmuxremote.data
 
 import android.content.Context
 import android.content.SharedPreferences
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
+import com.sodre90.cmuxremote.model.BridgeJson
 import com.sodre90.cmuxremote.push.PendingTokenStore
+import kotlinx.serialization.builtins.ListSerializer
 
 /**
- * Persists connection settings and secrets for both [ConnectionSlot]s. Everything
- * (including base URLs and tokens) lives in [EncryptedSharedPreferences] so
- * device certificates and bearer tokens are encrypted at rest; nothing here is
- * ever logged.
+ * Persists connection settings and secrets for every paired host's
+ * [ConnectionSlot]s, keyed by ([HostId], slot). Everything (including base URLs
+ * and tokens) lives in [EncryptedSharedPreferences] so device certificates and
+ * bearer tokens are encrypted at rest; nothing here is ever logged.
  *
- * Also the durable half of [SlotCredentialHealth]: the rest of that state is
- * in-memory and starts over each process, but whether the user has already
- * been told about a rejection has to outlive one (see [RejectionReportLog]).
+ * Also the durable half of [HostRegistry] and of each host's
+ * [SlotCredentialHealth]: the rest of that state is in-memory and starts over
+ * each process, but whether the user has already been told about a rejection
+ * has to outlive one (see [RejectionReportLog]).
  */
-class Settings(context: Context) : RejectionReportLog, PendingTokenStore {
+class Settings internal constructor(
+    private val prefs: SharedPreferences,
+) : PendingTokenStore, HostRegistryStore {
 
-    private val prefs: SharedPreferences = run {
-        val masterKey = MasterKey.Builder(context)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
-        EncryptedSharedPreferences.create(
-            context,
-            PREFS_NAME,
-            masterKey,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-        )
-    }
+    constructor(context: Context) : this(encryptedPrefs(context, PREFS_NAME))
 
     init {
         // An upgrading install may still have the pre-pairing manual-setup
@@ -41,18 +33,18 @@ class Settings(context: Context) : RejectionReportLog, PendingTokenStore {
         }
     }
 
-    fun baseUrl(slot: ConnectionSlot): String? = prefs.getString(key(slot, KEY_BASE_URL), null)
-    fun setBaseUrl(slot: ConnectionSlot, value: String) {
-        prefs.edit().putString(key(slot, KEY_BASE_URL), value).apply()
+    fun baseUrl(host: HostId, slot: ConnectionSlot): String? = prefs.getString(key(host, slot, KEY_BASE_URL), null)
+    fun setBaseUrl(host: HostId, slot: ConnectionSlot, value: String) {
+        prefs.edit().putString(key(host, slot, KEY_BASE_URL), value).apply()
     }
 
-    fun deviceToken(slot: ConnectionSlot): String? = prefs.getString(key(slot, KEY_TOKEN), null)
-    fun setDeviceToken(slot: ConnectionSlot, value: String) {
-        prefs.edit().putString(key(slot, KEY_TOKEN), value).apply()
+    fun deviceToken(host: HostId, slot: ConnectionSlot): String? = prefs.getString(key(host, slot, KEY_TOKEN), null)
+    fun setDeviceToken(host: HostId, slot: ConnectionSlot, value: String) {
+        prefs.edit().putString(key(host, slot, KEY_TOKEN), value).apply()
     }
 
     /**
-     * An FCM token no slot has accepted yet, kept so the retry can outlive the
+     * An FCM token no host has accepted yet, kept so the retry can outlive the
      * process that failed.
      *
      * FCM hands the app a rotated token exactly once, through onNewToken. If the
@@ -62,7 +54,7 @@ class Settings(context: Context) : RejectionReportLog, PendingTokenStore {
      * which FCM accepts with a 2xx while delivering nothing (cmux-app-2cm).
      *
      * Not cleared on [clearSlot]: the token belongs to the app on this device,
-     * not to either slot, and a re-pair should still find it waiting.
+     * not to any host, and a re-pair should still find it waiting.
      */
     override fun pendingFcmToken(): String? = prefs.getString(KEY_PENDING_FCM_TOKEN, null)
 
@@ -73,8 +65,9 @@ class Settings(context: Context) : RejectionReportLog, PendingTokenStore {
     }
 
     /**
-     * The Firebase client config the bridge handed over at pairing, or null if
-     * no pairing has supplied one. Not slot-scoped -- see [FcmClientConfig].
+     * The Firebase client config a bridge handed over at pairing, or null if
+     * no pairing has supplied one. Not host- or slot-scoped -- see
+     * [FcmClientConfig].
      *
      * Read on every launch before Firebase is touched, so a phone that has
      * never paired against a push-configured bridge simply never initialises
@@ -90,141 +83,126 @@ class Settings(context: Context) : RejectionReportLog, PendingTokenStore {
     }
 
     /**
-     * Stores the config [slot]'s bridge supplied, or clears the stored one when
-     * that bridge supplied none.
+     * Stores the config ([host], [slot])'s bridge supplied, or clears the
+     * stored one when that bridge supplied none.
      *
-     * The clear is deliberately narrow. Only the slot that supplied the stored
-     * config may clear it: the two slots are configured independently, and
-     * direct push is documented as optional, so pairing a push-less direct
-     * agent after a push-enabled relay would otherwise delete a working
-     * config and kill push on both slots. Same reasoning as the FCM token two
-     * blocks up -- what belongs to the app on this device does not get thrown
-     * away by whichever slot happened to re-pair last.
+     * The clear is deliberately narrow. Only the pairing that supplied the
+     * stored config may clear it: slots and hosts are configured
+     * independently, and direct push is documented as optional, so pairing a
+     * push-less direct agent after a push-enabled relay would otherwise delete
+     * a working config and kill push everywhere. Same reasoning as the FCM
+     * token two blocks up -- what belongs to the app on this device does not
+     * get thrown away by whichever pairing happened to land last.
      */
-    fun setFcmClientConfig(slot: ConnectionSlot, config: FcmClientConfig?) {
-        val owner = prefs.getString(KEY_FCM_SOURCE_SLOT, null)
-        if (config == null && !mayClearFcmConfig(owner, slot)) return
+    fun setFcmClientConfig(host: HostId, slot: ConnectionSlot, config: FcmClientConfig?) {
+        val owner = prefs.getString(KEY_FCM_SOURCE, null)
+        val claimant = fcmConfigOwner(host, slot)
+        if (config == null && !mayClearFcmConfig(owner, claimant)) return
         prefs.edit().apply {
             if (config == null) {
                 remove(KEY_FCM_PROJECT_ID)
                 remove(KEY_FCM_APP_ID)
                 remove(KEY_FCM_API_KEY)
                 remove(KEY_FCM_SENDER_ID)
-                remove(KEY_FCM_SOURCE_SLOT)
+                remove(KEY_FCM_SOURCE)
             } else {
                 putString(KEY_FCM_PROJECT_ID, config.projectId)
                 putString(KEY_FCM_APP_ID, config.appId)
                 putString(KEY_FCM_API_KEY, config.apiKey)
                 putString(KEY_FCM_SENDER_ID, config.senderId)
-                putString(KEY_FCM_SOURCE_SLOT, slot.name)
+                putString(KEY_FCM_SOURCE, claimant)
             }
         }.apply()
     }
 
-    override fun wasRejectionReported(slot: ConnectionSlot): Boolean =
-        prefs.getBoolean(key(slot, KEY_REJECTION_REPORTED), false)
+    /** [host]'s view of the rejection-report log, for its [SlotCredentialHealth]. */
+    fun rejectionReportLog(host: HostId): RejectionReportLog = object : RejectionReportLog {
+        override fun wasRejectionReported(slot: ConnectionSlot): Boolean =
+            prefs.getBoolean(key(host, slot, KEY_REJECTION_REPORTED), false)
 
-    override fun setRejectionReported(slot: ConnectionSlot, reported: Boolean) {
-        prefs.edit().putBoolean(key(slot, KEY_REJECTION_REPORTED), reported).apply()
+        override fun setRejectionReported(slot: ConnectionSlot, reported: Boolean) {
+            prefs.edit().putBoolean(key(host, slot, KEY_REJECTION_REPORTED), reported).apply()
+        }
     }
 
-    /** Wipes [slot]'s stored base URL and device token -- used by "Forget" in
-     *  ConnectionSettingsScreen. The other slot is untouched. */
-    fun clearSlot(slot: ConnectionSlot) {
+    /** Wipes ([host], [slot])'s stored base URL and device token -- used by
+     *  "Forget" in ConnectionSettingsScreen. Every other slot is untouched. */
+    fun clearSlot(host: HostId, slot: ConnectionSlot) {
         prefs.edit()
-            .remove(key(slot, KEY_BASE_URL))
-            .remove(key(slot, KEY_TOKEN))
-            .remove(key(slot, KEY_REJECTION_REPORTED))
+            .remove(key(host, slot, KEY_BASE_URL))
+            .remove(key(host, slot, KEY_TOKEN))
+            .remove(key(host, slot, KEY_REJECTION_REPORTED))
             .apply()
     }
 
-    /** Assembles a [BridgeConfig] for [slot], or null if that slot has never
-     *  been paired. */
-    fun bridgeConfig(slot: ConnectionSlot): BridgeConfig? {
-        val url = baseUrl(slot)?.takeIf { it.isNotBlank() } ?: return null
-        val token = deviceToken(slot)?.takeIf { it.isNotBlank() } ?: return null
+    /** Assembles a [BridgeConfig] for ([host], [slot]), or null if that slot
+     *  has never been paired. */
+    fun bridgeConfig(host: HostId, slot: ConnectionSlot): BridgeConfig? {
+        val url = baseUrl(host, slot)?.takeIf { it.isNotBlank() } ?: return null
+        val token = deviceToken(host, slot)?.takeIf { it.isNotBlank() } ?: return null
         return BridgeConfig(baseUrl = url, deviceToken = token)
     }
 
-    /**
-     * One-time migration from the pre-dual-pairing single {base_url,
-     * device_token} pair into whichever slot it most likely belongs to (see
-     * [inferLegacySlot]). Must be called explicitly by AppContainer (not
-     * from init): its result tells AppContainer which CryptoSession instance
-     * should absorb the matching legacy e2e session data, since CryptoSession
-     * has no way to see the base URL and infer this on its own.
-     *
-     * Returns the slot migrated into, or null if there was nothing to
-     * migrate (already migrated on a prior run, or a genuinely fresh
-     * install). Self-terminating: always clears the legacy keys the first
-     * time it finds data, so this never fires twice. The actual decision
-     * logic lives in [migrateLegacyIfNeededInternal] -- this is a thin
-     * wrapper supplying the real prefs-backed read/write callbacks.
-     */
-    fun migrateLegacyIfNeeded(): ConnectionSlot? = migrateLegacyIfNeededInternal(
-        readLegacyBaseUrl = { prefs.getString(KEY_BASE_URL, null) },
-        readLegacyToken = { prefs.getString(KEY_TOKEN, null) },
-        applyMigration = { slot, url, token ->
-            prefs.edit()
-                .putString(key(slot, KEY_BASE_URL), url)
-                .putString(key(slot, KEY_TOKEN), token)
-                .remove(KEY_BASE_URL)
-                .remove(KEY_TOKEN)
-                .apply()
-        },
-    )
+    override fun loadHosts(): List<PairedHost> =
+        prefs.getString(KEY_HOSTS, null)
+            ?.let { runCatching { BridgeJson.decodeFromString(hostListSerializer, it) }.getOrNull() }
+            .orEmpty()
 
-    private fun key(slot: ConnectionSlot, base: String) = "${slot.name.lowercase()}_$base"
+    override fun saveHosts(hosts: List<PairedHost>) {
+        prefs.edit().putString(KEY_HOSTS, BridgeJson.encodeToString(hostListSerializer, hosts)).apply()
+    }
 
-    private companion object {
+    private val hostListSerializer = ListSerializer(PairedHost.serializer())
+
+    override fun loadSelectedHost(): HostId? = prefs.getString(KEY_SELECTED_HOST, null)?.let(::HostId)
+
+    override fun saveSelectedHost(id: HostId?) {
+        prefs.edit().apply {
+            if (id == null) remove(KEY_SELECTED_HOST) else putString(KEY_SELECTED_HOST, id.value)
+        }.apply()
+    }
+
+    private fun key(host: HostId, slot: ConnectionSlot, base: String) = hostSlotKey(host, slot, base)
+
+    companion object {
         const val PREFS_NAME = "cmux_secure_prefs"
         const val KEY_BASE_URL = "base_url"
         const val KEY_TOKEN = "device_token"
-        const val KEY_P12 = "client_p12_b64"
         const val KEY_REJECTION_REPORTED = "credential_rejection_reported"
+        private const val KEY_P12 = "client_p12_b64"
 
-        // Not slot-scoped: one FCM token per app install, offered to every slot.
-        const val KEY_PENDING_FCM_TOKEN = "pending_fcm_token"
+        private const val KEY_HOSTS = "hosts"
+        private const val KEY_SELECTED_HOST = "selected_host"
 
-        // Not slot-scoped either: Firebase initialises once per process, so
-        // one config serves both slots (see FcmClientConfig).
-        const val KEY_FCM_PROJECT_ID = "fcm_project_id"
-        const val KEY_FCM_APP_ID = "fcm_app_id"
-        const val KEY_FCM_API_KEY = "fcm_api_key"
-        const val KEY_FCM_SENDER_ID = "fcm_sender_id"
+        // Not host-scoped: one FCM token per app install, offered to every host.
+        private const val KEY_PENDING_FCM_TOKEN = "pending_fcm_token"
 
-        // Which slot's bridge supplied the stored config, so only that slot
-        // can later clear it (see setFcmClientConfig).
-        const val KEY_FCM_SOURCE_SLOT = "fcm_source_slot"
+        // Not host-scoped either: Firebase initialises once per process, so
+        // one config serves every pairing (see FcmClientConfig).
+        private const val KEY_FCM_PROJECT_ID = "fcm_project_id"
+        private const val KEY_FCM_APP_ID = "fcm_app_id"
+        private const val KEY_FCM_API_KEY = "fcm_api_key"
+        private const val KEY_FCM_SENDER_ID = "fcm_sender_id"
+
+        /** Which pairing's bridge supplied the stored config, so only that one
+         *  can later clear it (see setFcmClientConfig). */
+        const val KEY_FCM_SOURCE = "fcm_source_slot"
     }
 }
 
+/** The key prefix every per-pairing record in both encrypted prefs files
+ *  shares: `<host>_<slot>_<field>`. */
+internal fun hostSlotKey(host: HostId, slot: ConnectionSlot, base: String) =
+    "${host.value}_${slot.name.lowercase()}_$base"
+
+internal fun fcmConfigOwner(host: HostId, slot: ConnectionSlot) = "${host.value}:${slot.name}"
+
 /**
- * Whether [slot] is allowed to clear a stored FCM config owned by [owner]
+ * Whether [claimant] is allowed to clear a stored FCM config owned by [owner]
  * (null meaning nobody has claimed one).
  *
- * A free function for the same reason [migrateLegacyIfNeededInternal] is one:
- * the decision is worth testing on the JVM, and [Settings] itself cannot be
- * constructed without Android Keystore.
+ * A free function because the decision is worth testing on the JVM, and
+ * [Settings] itself cannot be constructed without Android Keystore.
  */
-internal fun mayClearFcmConfig(owner: String?, slot: ConnectionSlot): Boolean =
-    owner == null || owner == slot.name
-
-/** Free function form of [Settings.migrateLegacyIfNeeded], parameterized over
- *  plain read/write callbacks so a JVM test can exercise it against
- *  in-memory maps instead of real EncryptedSharedPreferences -- mirrors
- *  [com.sodre90.cmuxremote.data.pairing.commitInternal]'s injectable-I/O
- *  pattern. [applyMigration] is expected to persist [ConnectionSlot]'s new
- *  base_url/device_token and clear the legacy keys in one atomic commit,
- *  same as the real prefs transaction it replaces. */
-internal fun migrateLegacyIfNeededInternal(
-    readLegacyBaseUrl: () -> String?,
-    readLegacyToken: () -> String?,
-    applyMigration: (slot: ConnectionSlot, baseUrl: String, token: String) -> Unit,
-): ConnectionSlot? {
-    val legacyUrl = readLegacyBaseUrl()?.takeIf { it.isNotBlank() } ?: return null
-    val legacyToken = readLegacyToken()?.takeIf { it.isNotBlank() } ?: return null
-    val slot = inferLegacySlot(legacyUrl)
-    applyMigration(slot, legacyUrl, legacyToken)
-    return slot
-}
+internal fun mayClearFcmConfig(owner: String?, claimant: String): Boolean =
+    owner == null || owner == claimant

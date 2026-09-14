@@ -5,29 +5,41 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * The two slots are configured independently and direct push is documented as
- * optional, so "the bridge sent no config" must not be read as "delete the
- * config the other slot's bridge sent".
+ * Slots and hosts are configured independently and direct push is documented
+ * as optional, so "the bridge sent no config" must not be read as "delete the
+ * config another pairing's bridge sent".
  */
 class FcmConfigOwnershipTest {
 
+    private val mac = HostId("aa".repeat(16))
+    private val linux = HostId("bb".repeat(16))
+
     @Test
-    fun `an unclaimed config may be cleared by either slot`() {
-        assertTrue(mayClearFcmConfig(null, ConnectionSlot.RELAY))
-        assertTrue(mayClearFcmConfig(null, ConnectionSlot.DIRECT))
+    fun `an unclaimed config may be cleared by any pairing`() {
+        assertTrue(mayClearFcmConfig(null, fcmConfigOwner(mac, ConnectionSlot.RELAY)))
+        assertTrue(mayClearFcmConfig(null, fcmConfigOwner(linux, ConnectionSlot.DIRECT)))
     }
 
     @Test
-    fun `the slot that supplied the config may clear it`() {
-        assertTrue(mayClearFcmConfig(ConnectionSlot.RELAY.name, ConnectionSlot.RELAY))
-        assertTrue(mayClearFcmConfig(ConnectionSlot.DIRECT.name, ConnectionSlot.DIRECT))
+    fun `the pairing that supplied the config may clear it`() {
+        val owner = fcmConfigOwner(mac, ConnectionSlot.RELAY)
+        assertTrue(mayClearFcmConfig(owner, fcmConfigOwner(mac, ConnectionSlot.RELAY)))
     }
 
     /** The regression: pairing a push-less direct agent after a push-enabled
      *  relay used to wipe the relay's config and kill push on both slots. */
     @Test
-    fun `the other slot may not clear a config it did not supply`() {
-        assertFalse(mayClearFcmConfig(ConnectionSlot.RELAY.name, ConnectionSlot.DIRECT))
-        assertFalse(mayClearFcmConfig(ConnectionSlot.DIRECT.name, ConnectionSlot.RELAY))
+    fun `the other slot of the same host may not clear a config it did not supply`() {
+        val owner = fcmConfigOwner(mac, ConnectionSlot.RELAY)
+        assertFalse(mayClearFcmConfig(owner, fcmConfigOwner(mac, ConnectionSlot.DIRECT)))
+    }
+
+    /** The multi-host case of the same rule: the Linux agent's relay pairing
+     *  hands over the same relay-supplied config, or none at all if its relay
+     *  has push off -- and neither may take the Mac's config away. */
+    @Test
+    fun `another host may not clear a config it did not supply`() {
+        val owner = fcmConfigOwner(mac, ConnectionSlot.RELAY)
+        assertFalse(mayClearFcmConfig(owner, fcmConfigOwner(linux, ConnectionSlot.RELAY)))
     }
 }

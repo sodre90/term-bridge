@@ -1,15 +1,14 @@
 package com.sodre90.cmuxremote.data.pairing
 
-import com.sodre90.cmuxremote.data.BridgeConfig
 import com.sodre90.cmuxremote.data.ConnectionSlot
 import com.sodre90.cmuxremote.data.FcmClientConfig
+import com.sodre90.cmuxremote.data.HostConnections
+import com.sodre90.cmuxremote.data.HostId
 import com.sodre90.cmuxremote.data.Settings
-import com.sodre90.cmuxremote.data.SlotCredentialHealth
-import com.sodre90.cmuxremote.data.SlotCredentials
-import com.sodre90.cmuxremote.data.e2e.CryptoSession
 import com.sodre90.cmuxremote.data.e2e.deriveSharedSecret
 import com.sodre90.cmuxremote.data.e2e.generateX25519KeyPair
 import com.sodre90.cmuxremote.data.e2e.pairingFingerprint
+import com.sodre90.cmuxremote.data.hostIdOf
 import com.sodre90.cmuxremote.model.BridgeJson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -177,22 +176,22 @@ internal class PairingKeys(
  * fingerprint on screen always describes the key [commit] will submit. One
  * instance per [slot], so relay and direct never share pending state.
  *
- * [retirePreviousCredential] is handed whatever credential this pairing
- * replaced, once the new one is stored and only for a pairing the operator
- * accepted -- so a re-pair leaves no live token behind, and a refused one
- * costs the working connection nothing.
+ * Which host a pairing belongs to is only known at [commit], from the agent
+ * key the QR carries -- so the per-host state it writes into is resolved
+ * there through [bindHost], never fixed at construction. Everything about the
+ * pairing being replaced (the credential to retire, the sockets to drop, the
+ * rejection to clear) is looked up on that same host, so scanning a second
+ * machine's QR into a slot never disturbs the first machine's pairing.
+ *
+ * [onPairingStored] fires once a pairing is confirmed and stored, with the
+ * host it landed on and the base URL it reaches it at.
  */
 class PairingClient(
     private val http: OkHttpClient,
-    private val session: CryptoSession,
-    private val settings: Settings,
     private val slot: ConnectionSlot,
-    private val slotCredentials: SlotCredentials,
-    private val credentialHealth: SlotCredentialHealth,
-    private val retirePreviousCredential: (BridgeConfig) -> Unit = {},
-    /** Fired once a pairing is confirmed and stored, so push can come up in
-     *  this process rather than waiting for the next launch. */
-    private val onPairingStored: () -> Unit = {},
+    private val settings: Settings,
+    private val bindHost: (HostId) -> HostConnections,
+    private val onPairingStored: (host: HostId, baseUrl: String) -> Unit = { _, _ -> },
 ) : PairingSession {
     private val keys = PairingKeys()
 
@@ -200,33 +199,35 @@ class PairingClient(
 
     override suspend fun commit(qr: PairingQr, onAwaitingOperator: () -> Unit) {
         val (privateKey, publicKey) = keys.consume()
+        val hostId = hostIdOf(Base64.getDecoder().decode(qr.agentPubkey))
+        val host = bindHost(hostId)
         // Read before commitInternal writes over it. Every pairing mints a
         // fresh key and a fresh device row (cmux-app-1fx), so without this
         // the row this one replaces would stay authenticating forever
         // against a secret the agent has already dropped (cmux-app-bys).
-        val superseded = settings.bridgeConfig(slot)
+        val superseded = host.bridgeConfig(slot)
         commitInternal(
             http = http,
             qr = qr,
             phonePrivateKey = privateKey,
             phonePublicKey = publicKey,
             onAwaitingOperator = onAwaitingOperator,
-            onSetPairing = session::setPairing,
-            onSetBaseUrl = { settings.setBaseUrl(slot, it) },
-            onSetToken = { settings.setDeviceToken(slot, it) },
-            onSetFcmClientConfig = { settings.setFcmClientConfig(slot, it) },
-            onPairingStored = onPairingStored,
+            onSetPairing = host.session(slot)::setPairing,
+            onSetBaseUrl = { settings.setBaseUrl(hostId, slot, it) },
+            onSetToken = { settings.setDeviceToken(hostId, slot, it) },
+            onSetFcmClientConfig = { settings.setFcmClientConfig(hostId, slot, it) },
+            onPairingStored = { onPairingStored(hostId, baseUrlFromPairUrl(qr.pairUrl)) },
             // Sockets still running on the old token map to the agent's
             // previous device row, whose key no longer matches this
             // session, so every frame they carry is dropped (cmux-app-smu).
             onCredentialsReplaced = {
-                slotCredentials.invalidate(slot)
+                host.slotCredentials.invalidate(slot)
                 // Immediately, not at the next launch probe: registerDevice
                 // won't run again until then, so a stale "rejected" would
                 // still be demanding a re-pair on the screen the user just
                 // re-paired from.
-                credentialHealth.reset(slot)
-                superseded?.let(retirePreviousCredential)
+                host.slotCredentialHealth.reset(slot)
+                superseded?.let { host.retireCredential(slot, it) }
             },
         )
     }

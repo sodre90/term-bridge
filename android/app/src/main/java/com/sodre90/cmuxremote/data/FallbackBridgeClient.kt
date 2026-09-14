@@ -50,6 +50,7 @@ class FallbackBridgeClient(
     private val monitor: ConnectionMonitor = ConnectionMonitor(),
     private val onRegistrationOutcome: (ConnectionSlot, RegistrationOutcome) -> Unit = { _, _ -> },
     private val onCredentialRejected: (ConnectionSlot) -> Unit = {},
+    private val onHostInfo: (HostInfo) -> Unit = {},
 ) {
     /**
      * Reports a 401 as that slot's credential being gone. On DIRECT that is
@@ -152,11 +153,19 @@ class FallbackBridgeClient(
     private val _hostInfo = MutableStateFlow(HostInfo())
 
     /** What the last successful [sessions] fetch said about the host behind
-     *  this pairing; a cmux host until the first fetch answers. */
+     *  this pairing; a cmux host until the first fetch answers. The same
+     *  answer also goes to [onHostInfo], which is how the host registry learns
+     *  a host's name and kind without a pairing-time wire change. */
     val hostInfo: StateFlow<HostInfo> = _hostInfo.asStateFlow()
 
     suspend fun sessions(): List<Workspace> = retryingNotPaired {
-        call { it.sessions() }.also { _hostInfo.value = it.host }.workspaces
+        call { it.sessions() }.also { publishHostInfo(it.host) }.workspaces
+    }
+
+    private fun publishHostInfo(info: HostInfo) {
+        if (_hostInfo.value == info) return
+        _hostInfo.value = info
+        onHostInfo(info)
     }
     suspend fun pendingFeed(): List<PendingFeedItem> = retryingNotPaired { call { it.pendingFeed() } }
     suspend fun replyFeed(feedId: String, reply: FeedReply) = call { it.replyFeed(feedId, reply) }
