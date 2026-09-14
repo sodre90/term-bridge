@@ -220,15 +220,67 @@ between hosts.
    so it runs without a login session. Logs go to `journalctl --user -u
    term-bridge-agent`.
 4. Pair a phone with `term-bridge pair-device` on the box, as below.
+5. Run `term-bridge hook install` once (as the same user) so Claude Code
+   sessions in tmux feed the Inbox -- see the next section.
 
 What differs from cmux, by design: a pane is its own only surface, so there
 is no "add as tab" (the app hides it from the host's advertised
 capabilities); a window a phone is viewing is sized to the phone
 (`resize-window`) and handed back to attached clients a few seconds after the
-phone leaves; the structured Inbox (permission prompts, questions), YOLO mode
-and attention pushes are not yet available on tmux hosts -- the agent
-advertises `feed: false` and the app hides them. Claude Code hooks will
-bring them (see `docs/superpowers/specs/2026-09-14-linux-tmux-host-design.md`).
+phone leaves; and the Inbox, YOLO mode, attention stripes and pushes cover
+Claude Code panes only, through its hooks, since tmux itself has no notion
+of an agent prompt (the design: `docs/superpowers/specs/2026-09-14-linux-tmux-host-design.md`).
+
+### Claude Code hooks on Linux
+
+The agent listens on a unix socket, `$XDG_RUNTIME_DIR/term-bridge/hooks.sock`
+(directory `0700`, socket `0600`; with no `XDG_RUNTIME_DIR` the feed is off
+and the agent says so at startup). `term-bridge hook install` adds a command
+hook running `<path>/term-bridge hook` to `~/.claude/settings.json` for
+`PreToolUse`, `PermissionRequest`, `PostToolUse`, `Notification`, `Stop`,
+`UserPromptSubmit` and `SessionEnd`, leaving everything else in the file as
+it was; it prints the before/after first, `--dry-run` stops there, and a
+second run is a no-op. Running Claude Code sessions pick it up on restart.
+
+`term-bridge hook` reads the hook's stdin, forwards it with `$TMUX_PANE` and
+the `$TMUX` socket path to the agent, waits for the agent to acknowledge,
+and exits 0 with no output -- always. Outside tmux, with no agent running,
+or on any error it does the same, which to Claude Code means "no decision":
+its own prompt appears exactly as with no hook. Exit code 2 would block the
+tool call, so the hook is dispatched before every other startup check in the
+binary and never takes that path.
+
+What the agent does with the hooks:
+
+- `PreToolUse` records the tool call (this is the hook carrying
+  `tool_use_id`); `PermissionRequest`, ~16 ms later, turns it into a pending
+  item -- a `permissionRequest` with `tool_name`/`tool_input`, or a
+  `question` with the `questions[]` structure for `AskUserQuestion` -- and
+  raises the attention frame that becomes a push. A hook from a pane on some
+  other tmux server (`%N` is reused per server) is refused.
+- A reply types the digit of the option Claude Code drew: `once` → `Yes`;
+  `always`/`all`/`bypass` → the prompt's qualified yes (`Yes, allow …`,
+  `Yes, and always …`) except "switch to auto mode", falling back to `Yes`
+  when the prompt has none; `deny` → `No`, or Esc when there is none; a
+  question → the option whose label was chosen. The agent re-reads
+  `capture-pane` right before typing (polling up to two seconds, since
+  Claude draws the prompt only after the hook returns) and answers
+  `409 prompt_gone` if the numbered list is not on screen. Only
+  single-select, single-question prompts are answered this way; the rest
+  are shown and answered in the terminal.
+- The item clears on `PostToolUse`, `Stop`, `UserPromptSubmit`,
+  `SessionEnd`, or when a `/feed/pending` read finds the list gone from the
+  screen (a human answered at the keyboard). `Stop` marks the workspace
+  waiting for input (amber stripe, `last_assistant_message` as its preview);
+  a `Notification` of type `idle_prompt` raises the "waiting for your
+  input" push, and `permission_prompt` only fills in for a missed
+  `PermissionRequest`. A pane whose foreground process is no longer an agent
+  carries no status whatever the feed remembers.
+
+The hook payloads are the user's own content (the gated command, the
+question) and are never logged. The keymap is coupled to Claude Code's TUI
+wording; a wording change surfaces as refused replies, never as a wrong
+keystroke.
 
 The agent is co-located with the relay in the reference deployment; it still
 dials the relay's **public** nginx name like any other host (hairpin), so
@@ -429,9 +481,9 @@ To get "agent needs you" notifications:
    device paired to that tenant. The payload carries no host id: the phone
    tries each paired host's e2e session and only the right one decrypts.
 
-Attention pushes come from cmux hosts today; a tmux host raises none until
-the Claude Code hooks land. Test pushes (`POST /devices/test-push`) work on
-both.
+Attention pushes come from both host kinds -- on tmux from the Claude Code
+hooks above, one per prompt (`PermissionRequest` / `AskUserQuestion`) plus
+`idle_prompt`. Test pushes (`POST /devices/test-push`) work on both.
 
 cmux redacts the actual prompt text in its event stream, so push triggers on
 the Claude Code hook name (`Notification` covers permission prompts and idle
@@ -484,8 +536,10 @@ identically. Ids are opaque to the app: cmux UUIDs, or tmux's `$n` window
 and `%n` pane ids.
 
 `/feed/pending`, `/feed/{id}/reply` and `/sessions/{id}/yolo-mode` answer
-on cmux hosts; a tmux host advertises `capabilities.feed = false` and the
-app does not call them.
+on cmux hosts and on tmux hosts with the hook feed (`capabilities.feed`);
+a tmux agent started without `XDG_RUNTIME_DIR` advertises `feed = false`
+and the app does not call them. On tmux `/feed/{id}/reply` answers
+`409 {"error":"prompt_gone"}` when the prompt is no longer on screen.
 
 `feed.*.reply`'s params beyond `request_id` (confirmed against cmux's own RPC
 contract strings, not guessed): `feed.permission.reply` takes

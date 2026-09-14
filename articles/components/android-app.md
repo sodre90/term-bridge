@@ -12,7 +12,7 @@ tags:
 ---
 ## Summary
 
-The Android app (`com.sodre90.cmuxremote`) is a native Kotlin/Compose client for `term-bridge`. It connects to the bridge behind the mTLS nginx edge to list the sessions on your hosts (cmux workspaces on a Mac, tmux windows on a Linux box), drive a live terminal, and answer agent prompts, with optional FCM push. It pairs with any number of hosts, keeps credentials, keys and workspace order per host (keyed by the agent's identity key), and switches between them from the sessions title. It depends only on the bridge's documented HTTP/WebSocket contract, never on cmux or tmux internals; the `host` block on `GET /sessions` tells it what each host can do (a tmux host has no tabs and, until its hooks land, no Inbox/YOLO).
+The Android app (`com.sodre90.cmuxremote`) is a native Kotlin/Compose client for `term-bridge`. It connects to the bridge behind the mTLS nginx edge to list the sessions on your hosts (cmux workspaces on a Mac, tmux windows on a Linux box), drive a live terminal, and answer agent prompts, with optional FCM push. It pairs with any number of hosts, keeps credentials, keys and workspace order per host (keyed by the agent's identity key), and switches between them from the sessions title. It depends only on the bridge's documented HTTP/WebSocket contract, never on cmux or tmux internals; the `host` block on `GET /sessions` tells it what each host can do (a tmux host has no tabs, and has an Inbox/YOLO only with the Claude Code hook feed installed).
 
 ## Body
 

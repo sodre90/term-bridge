@@ -199,6 +199,13 @@ fight; accepted, same as two humans attached today.
 
 ### Feed on Linux: Claude Code hooks (`internal/host/agentfeed`)
 
+*As built (phase 5, 2026-09-14) the item is created at `PermissionRequest`
+with the `PreToolUse` record's `tool_use_id`, `Notification
+permission_prompt` only fills in for a missed one, replies are a single
+digit, and `question` items are fully structured -- see the probe rows and
+the "phase 5 live" row under* Verified *below; the paragraphs here are the
+design as written before the probe.*
+
 Terminal-agnostic. Claude Code's hooks carry `session_id`, `cwd`,
 `tool_name`, `tool_input`, `tool_use_id`, and the hook process inherits
 `$TMUX_PANE` from the pane it runs in — that is the reply target, no
@@ -429,6 +436,7 @@ live test | Phase 4 end-to-end on the emulator paired to the Linux agent, 2026-0
 3 | `Notification permission_prompt` carries only `session_id`, `cwd`, `message: "Claude needs your permission"`, `notification_type` -- no tool, no options -- and fires **6 s after** the prompt is on screen. Nothing else fired within 60 s of idle at the input box; `Stop` fires the moment a turn ends with `last_assistant_message` (the "waiting for input" signal), `SessionEnd` on `/exit`.
 4 | `TMUX_PANE=%16` and `TMUX=<socket>,<pid>,0` are in the hook process environment, unsanitised.
 9 | The prompt is a numbered list; **a digit keypress selects at once, no Enter**. The list varies per tool: Bash → `1. Yes` / `2. Yes, and always allow access to /tmp from this project` / `3. Yes, and switch to auto mode …` / `4. No`; Write → `1. Yes` / `2. Yes, and switch to accept edits … (shift+tab)` / `3. No`; AskUserQuestion → `1. Red` / `2. Blue` / `3. Type something.` / `4. Chat about this`. So the keymap resolves a mode to a **text pattern**, finds its number on the live screen, and types that digit: once → the option that is exactly `Yes`; always/all/bypass → the first `Yes, and …` that is not "switch to auto mode"; deny → `No` (Esc as fallback); question → the option whose label matches the selection. Prompt gone from screen → refuse.
+phase 5 live | On the emulator paired to home-server, 2026-09-14, Claude Code 2.1.270 (`claude --permission-mode default`), the real hook installed by `term-bridge hook install`: Bash prompt → Inbox item with command and description → Approve typed `1`, tool ran, item gone; AskUserQuestion → structured item → "Blue" from the phone answered the prompt; `4` at the keyboard first → the phone's Approve got `409 prompt_gone`; YOLO `always` typed `2` unattended and the next identical call raised no prompt; stripes red/amber/none; one relay push per prompt to both phones. Two things the probe had not shown: 2.1.270 words the always option "Yes, allow reading from /tmp from this project" (no "and"), and the TUI breaks long labels across lines itself, so `capture-pane -J` cannot rejoin them -- the keymap matches on `Yes,` and on a label's head. Also found and fixed: the app refetches `/feed/pending` on the frame `PermissionRequest` raises, before Claude has drawn the prompt, so a screen-prune with no grace dropped every item at birth.
 phase 3 live | On the emulator, 2026-09-14: the in-place upgrade migrated the existing slot-keyed Linux pairing under its `HostId` (name learned as `home-server`, Inbox hidden); "Pair another host" paired the Mac (name learned once the Mac agent was rebuilt with the host block -- the older binary left the URL placeholder, as designed); host menu switches both ways; a Mac attention push arriving while home-server was selected fell through to the Mac session (`push did not decrypt on host … RELAY: DecryptFailedException`, then shown with its real title); tapping a home-server notification while the Mac was selected switched to home-server; Forget on the Mac's last slot removed the host and a re-pair brought it back. The Samsung followed the same day: its real relay+direct Mac pairing migrated in place under one host, then it paired `home-server` via QR (name learned, FCM token accepted by both hosts). Not exercised: DIRECT on a second host.
 
 Wire deferrals decided while implementing phase 2: host identity and

@@ -20,7 +20,9 @@ single sitting), **M** (half-day-ish), **L** (multi-day / needs a design pass).
   (`term-bridge-relay` home-server daemon, `term-bridge agent` on each host)
   that together let a phone drive terminal agent sessions remotely. A host is
   a Mac running cmux or a Linux box running tmux; the agent fronts either
-  behind `internal/host.Host` (`cmuxhost`, `tmuxhost`), and the app pairs
+  behind `internal/host.Host` (`cmuxhost`, `tmuxhost`; on tmux the agent
+  feed comes from Claude Code's hooks via `internal/host/agentfeed` and the
+  `term-bridge hook` subcommand), and the app pairs
   with several hosts and switches between them (`HostRegistry`,
   `HostConnections`, everything stored per `HostId`). Read the root
   `README.md` first — the architecture diagram and security model there are

@@ -45,9 +45,22 @@ running cmux, and switches between them.
   last slot removes it.
 - **Capability-gated UI and host-neutral copy.** "Add as tab" disappears
   where the host has no tabs; the Inbox, YOLO mode and the pending-count
-  poll are hidden on hosts without a feed (tmux, until its Claude Code
-  hooks land). Every "Mac" in the app's copy now names the host ("Show on
-  home-server") or is neutral.
+  poll are hidden on hosts without a feed. Every "Mac" in the app's copy
+  now names the host ("Show on home-server") or is neutral.
+- **Inbox, YOLO, attention and push on Linux via Claude Code hooks.**
+  `term-bridge hook install` adds a command hook to `~/.claude/settings.json`;
+  `term-bridge hook` forwards each event with its `$TMUX_PANE` over
+  `$XDG_RUNTIME_DIR/term-bridge/hooks.sock` (0600, no listening port) and
+  always exits 0 with no decision, so Claude Code's own prompt appears as
+  before. The agent (`internal/host/agentfeed`) mirrors `PermissionRequest`
+  (permission requests and `AskUserQuestion` questions, keyed by the
+  `PreToolUse` `tool_use_id`) as pending feed items in cmux's shape, raises
+  the attention push, and answers a reply or a YOLO auto-approve by
+  re-reading `capture-pane` and typing the digit of the matching option;
+  a prompt no longer on screen is refused with `409 prompt_gone`. Items
+  clear on `PostToolUse`/`Stop`/`UserPromptSubmit`/`SessionEnd` or when the
+  prompt leaves the screen; `Stop` marks a workspace waiting for input.
+  Single-select, single-question prompts only.
 
 ### Changed
 

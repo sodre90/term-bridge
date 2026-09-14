@@ -11,7 +11,8 @@ The app depends only on the bridge's documented HTTP/WebSocket contract
 (`GET /sessions`, `WS /events`, `WS /terminal/{id}`, `POST /feed/{id}/reply`,
 `POST /devices/register`), never on cmux or tmux internals; `GET /sessions`
 also carries a `host` block (name, kind, capabilities) that the app gates its
-UI on -- a tmux host has no tabs and, until its hooks land, no Inbox/YOLO.
+UI on -- a tmux host has no tabs, and its Inbox/YOLO exist only with the
+Claude Code hook feed (`term-bridge hook install` on the box).
 Every request carries an `Authorization: Bearer <device-token>` minted at
 pairing — no client TLS certificate on the device side (only agents have
 one). Once paired, request/response bodies and terminal frames are also

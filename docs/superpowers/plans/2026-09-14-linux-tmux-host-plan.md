@@ -214,10 +214,36 @@ first draft below are noted inline.
 
 `bridge: Claude Code hooks feed permission prompts to the phone on Linux`
 
-Gate: phase 0 results for hook JSON, `$TMUX_PANE`, the prompt's option
-texts/keystrokes and `Notification permission_prompt` timing. If the
-prompt has no stable on-screen option text to key on, stop and bring the
-evidence to the owner before improvising.
+Landed 2026-09-14 (`8a95693`, `1f45535`, `3a908e7`, `ed4bb70`), live-tested
+the same day against Claude Code 2.1.270 in the scratch session. As built,
+where it departs from the sketch below:
+
+- The item is created at `PermissionRequest`, not at `Notification
+  permission_prompt` (which arrives six seconds later and carries no tool);
+  `PreToolUse` supplies the `tool_use_id`, matched by tool name + input.
+  `permission_prompt` only fills in for a missed `PermissionRequest`.
+- `question` items are fully structured (`AskUserQuestion` fires both
+  hooks with `tool_input.questions[]`); a reply types the digit of the
+  chosen label, single-select and single-question only.
+- Replies are a digit, no Enter. The keymap is a text pattern per mode
+  (`Yes` / a qualified `Yes,` that is not "auto mode" / `No` or Esc) found on
+  the live screen, since the option list varies per tool and per Claude
+  Code version (2.1.263 said "Yes, and always allow…", 2.1.270 "Yes, allow
+  reading from…"). `capture-pane -J` is polled up to two seconds because
+  Claude draws the prompt only after the hook returns; the same grace
+  exempts a fresh item from the screen-prune on `/feed/pending`, which
+  otherwise dropped every item on the refetch its own frame triggered.
+- `Stop` is the waiting-input signal (stripe + `last_assistant_message`
+  preview, no push); `idle_prompt` pushes. `PostToolUse` clears the item
+  when the keyboard answered. A pane whose foreground process is not an
+  agent carries no status.
+- The hook is dispatched in `main` before the legacy-config guard (exit 2
+  would block the tool call) and forwards `$TMUX` so a pane of another tmux
+  server is refused by `socket_path`.
+- The server maps `host.ErrPromptGone` to `409 prompt_gone` (a server
+  change after all -- the only way the refusal reaches the phone).
+
+Original sketch:
 
 - `cmd/term-bridge/hook.go`: `term-bridge hook` reads stdin JSON, requires
   `TMUX_PANE`, connects to `$XDG_RUNTIME_DIR/term-bridge/hooks.sock`
@@ -225,34 +251,20 @@ evidence to the owner before improvising.
   exit 0, empty output** (no decision). `term-bridge hook install [--dry-run]`
   edits `~/.claude/settings.json` idempotently after printing the diff.
 - `internal/host/agentfeed/`: unix-socket listener owned by the agent
-  process (mode 0600, parent dir 0700). `PermissionRequest` → respond `{}`
-  at once, record `{tool_name, tool_input, tool_use_id}` against the pane.
-  `Notification permission_prompt` → promote the record to
-  `host.FeedItem{Kind:"permissionRequest", RequestID: tool_use_id, Surface:
-  pane id, Tool, Input}` (or a screen-text item if no record). `FeedReply`
-  → `keymap.go` resolves mode → expected option text + keystroke, re-reads
+  process (mode 0600, parent dir 0700); records per pane; `FeedReply` →
+  `keymap.go` resolves mode → expected option text + keystroke, re-reads
   `capture-pane` for that pane, refuses with `prompt_gone` if the text is
-  absent, else `send-keys`. Item clears on `idle_prompt`/`agent_completed`
-  or when the prompt text leaves the screen. `Notification idle_prompt /
-  agent_needs_input / agent_completed` → attention updates and
-  `notification` events. `tool_input` is feed content: never logged.
-- `tmuxhost` composes `agentfeed`: `Feed`/`FeedReply`/`Events` merge it;
-  `Capabilities.Feed=true`, `FeedKinds` per phase 0 (`question` only if a
-  hook exposes options).
-- Server: no change beyond what phase 1 left; YOLO auto-reply already
-  calls `host.FeedReply`.
-- Tests: socket round-trip with a fake hook client; `PermissionRequest`
-  always answers `{}` immediately; record → item promotion and the
-  no-record fallback; keymap against the phase 0 prompt fixture;
-  `prompt_gone` refusal when the screen changed; YOLO modes → option
-  mapping; item clearing; passthrough on missing pane;
-  `multitenant_test.go` unchanged and green.
-- Live: Claude Code in the scratch session on the server, phone paired to
-  the Linux host: permission prompt appears in the Inbox *and* in the SSH-attached view;
-  reply from the phone allows/denies; answering in SSH first clears the
-  Inbox item; a stale tap after the prompt is gone is refused with
-  `prompt_gone`; YOLO `always` picks the always option; stripes and push
-  fire; `hook install` diff reviewed by the owner before applying.
+  absent, else `send-keys`. `tool_input` is feed content: never logged.
+- `tmuxhost` composes `agentfeed`: `Capabilities.Feed=true`, PendingFeed /
+  FeedReply / RunEvents merge it, ListWorkspaces carries attention.
+- Live (all passed 2026-09-14 on the emulator paired to home-server): the
+  prompt appears in the Inbox with the command, Approve types `1` and the
+  tool runs, a question is answered from the phone ("→ Blue"), answering
+  with `4` at the keyboard first makes the phone's tap a `409 prompt_gone`,
+  YOLO `always` types `2` and the next identical call raises no prompt at
+  all, the workspace stripe goes red → amber → none across prompt / Stop /
+  exit, the relay fans one push per prompt out to both phones, and `hook
+  install` is a no-op the second time.
 
 ## Phase 6 — docs (cmux-app-pxu.6)
 
@@ -262,8 +274,8 @@ evidence to the owner before improvising.
 Landed early (2026-09-14, at the owner's request, together with the
 term-bridge rename): README, CLAUDE.md, bridge/android READMEs, the
 improvement guide and the knowledge base describe the Linux host and
-multi-host as built. Still owed after phase 5: the hooks-socket security
-claims, the allow/deny authority statement, and the epic close-out.
+multi-host as built; the hooks-socket security claims and the allow/deny
+authority statement followed with phase 5 the same day.
 
 - `README.md`: architecture paragraph gains the Linux agent; "What the app
   does" gains host switching and the tmux limitations list; security

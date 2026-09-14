@@ -152,6 +152,18 @@ Defense in depth, all the way to the host's own socket:
   **same Unix user**; the bridge reaches tmux through its CLI exactly as that
   user could from a shell, and `send-keys` is the same capability terminal
   input already grants.
+- **The Claude Code hooks socket is the Linux agent's one local IPC surface**:
+  `$XDG_RUNTIME_DIR/term-bridge/hooks.sock`, in a `0700` directory, mode
+  `0600`, reachable only by that user — no port. `term-bridge hook` is a
+  command hook, not an `http` hook, precisely so nothing listens. What
+  crosses it is what Claude Code already hands any hook (the gated tool's
+  name and input, the prompt's questions); the agent never logs it.
+- **Allow/deny authority stays with Claude Code.** The hook returns no
+  decision, ever — it only records what is being asked. Approving from the
+  phone types the digit of the option Claude Code drew, and the bridge
+  re-reads the screen immediately before typing: no prompt on screen, no
+  keystroke. Nothing in the bridge can approve a tool call that Claude Code
+  is not at that moment asking about.
 
 ## What the app does
 
@@ -171,11 +183,15 @@ Defense in depth, all the way to the host's own socket:
   releases it back to the attached client's size afterwards.
 - **Agent inbox** — answer blocking prompts (permission requests and questions)
   via `POST /feed/{id}/reply`. Plan-approval (`exitPlan`) prompts aren't wired
-  into the Inbox yet — their reply schema isn't confirmed live. *cmux hosts
-  only for now*: a tmux host advertises `feed: false`, so the Inbox button,
-  YOLO mode and the pending-count poll are hidden for it. Claude Code hooks
-  will bring the feed to Linux (see [the Linux host
-  design](docs/superpowers/specs/2026-09-14-linux-tmux-host-design.md)).
+  into the Inbox yet — their reply schema isn't confirmed live. On cmux the
+  feed is cmux's own; on tmux it comes from Claude Code's hooks
+  (`term-bridge hook install`, see [bridge/README.md → Claude Code
+  hooks](bridge/README.md#claude-code-hooks-on-linux)): the prompt stays
+  Claude Code's own in the terminal, the phone mirrors it, and a reply types
+  the matching option's digit into the pane. A tap on a prompt someone already
+  answered at the keyboard is refused (`409 prompt_gone`), never typed blind.
+  Multi-select and multi-question prompts are shown but must be answered in
+  the terminal on tmux.
 - **Rename a workspace** — long-press a workspace on the phone to set its
   persistent display title, via `POST /sessions/{id}/rename` (a cmux
   workspace title or a tmux window name).
@@ -191,8 +207,9 @@ Defense in depth, all the way to the host's own socket:
   mode (Off/Always/All tools/Bypass) for permission prompts; the agent
   replies on the host's behalf with no phone round-trip, and the mode is shown
   as a badge on that workspace's row and in its terminal pane. `Bypass`
-  mirrors Claude Code's own `--dangerously-skip-permissions`. cmux hosts only
-  for now (same gate as the Inbox).
+  mirrors Claude Code's own `--dangerously-skip-permissions` on cmux; on
+  tmux, where a prompt cannot switch the session's mode, `All tools` and
+  `Bypass` both pick each prompt's own "always allow" option.
 - **Custom sort order** — drag workspaces into any order via the handle on each
   row; purely a phone-local display preference, kept per host, not synced
   anywhere.
@@ -203,8 +220,8 @@ Defense in depth, all the way to the host's own socket:
 - **Optional push** — FCM "an agent needs you" notifications, off by default and
   requiring no Firebase config to build. One phone token is registered with
   every paired host; a notification names the host it came from and opens
-  the app on that host. Attention pushes come from cmux hosts today (tmux
-  follows with the hooks work above); test pushes work on both.
+  the app on that host. Attention pushes come from both host kinds (on tmux,
+  from the Claude Code hooks); test pushes work on both.
 
 The bridge performs read methods, terminal input/replay, feed replies
 (including YOLO mode's automatic ones), workspace rename, and
@@ -215,8 +232,13 @@ closing is the one destructive action and is confirmed on the phone first.
 
 ### tmux host: known limitations
 
-- No tabs (tmux has none); no Inbox/YOLO/attention stripes until the
-  Claude Code hooks land.
+- No tabs (tmux has none). Inbox, YOLO, attention stripes and pushes exist
+  only for Claude Code panes with the hook installed; other agents in a
+  pane are plain terminals to the phone.
+- The Inbox mirrors Claude Code's prompt as drawn: a reply is a keystroke,
+  so the option texts the bridge keys on (`Yes`, `Yes, …`, `No`, a question's
+  labels) follow Claude Code's TUI and may need updating when it changes —
+  the failure mode is a refused reply, not a wrong one.
 - One window size per pane: while the phone is viewing a pane the window
   follows the phone's size, and an attached client sees that size too.
 - `capture-pane` flattens cursor style/blink and extended underline styles.
