@@ -1,9 +1,13 @@
 package com.sodre90.cmuxremote.data
 
 import com.sodre90.cmuxremote.model.FeedReply
+import com.sodre90.cmuxremote.model.HostInfo
 import com.sodre90.cmuxremote.model.PendingFeedItem
 import com.sodre90.cmuxremote.model.Workspace
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import java.io.IOException
 
 /**
@@ -145,7 +149,15 @@ class FallbackBridgeClient(
         return block()
     }
 
-    suspend fun sessions(): List<Workspace> = retryingNotPaired { call { it.sessions() } }
+    private val _hostInfo = MutableStateFlow(HostInfo())
+
+    /** What the last successful [sessions] fetch said about the host behind
+     *  this pairing; a cmux host until the first fetch answers. */
+    val hostInfo: StateFlow<HostInfo> = _hostInfo.asStateFlow()
+
+    suspend fun sessions(): List<Workspace> = retryingNotPaired {
+        call { it.sessions() }.also { _hostInfo.value = it.host }.workspaces
+    }
     suspend fun pendingFeed(): List<PendingFeedItem> = retryingNotPaired { call { it.pendingFeed() } }
     suspend fun replyFeed(feedId: String, reply: FeedReply) = call { it.replyFeed(feedId, reply) }
     suspend fun renameWorkspace(id: String, title: String) = call { it.renameWorkspace(id, title) }

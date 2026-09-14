@@ -1,6 +1,8 @@
 package com.sodre90.cmuxremote.data
 
 import com.sodre90.cmuxremote.model.FeedReply
+import com.sodre90.cmuxremote.model.HostInfo
+import com.sodre90.cmuxremote.model.HostKind
 import com.sodre90.cmuxremote.model.PanePlacement
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.buildJsonObject
@@ -10,6 +12,7 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
@@ -43,13 +46,17 @@ class BridgeClientTest {
             ),
         )
 
-        val list = runBlocking { client.sessions() }
+        val response = runBlocking { client.sessions() }
+        val list = response.workspaces
 
         assertEquals(1, list.size)
         assertEquals("a", list[0].id)
         assertTrue(list[0].hasUnread)
         assertEquals(1, list[0].terminals.size)
         assertEquals("t-a", list[0].terminals[0].id)
+        // A bridge that predates host info reads as the cmux host it must be.
+        assertEquals(HostInfo(), response.host)
+        assertTrue(response.host.capabilities.tabs)
 
         val req = server.takeRequest()
         assertEquals("GET", req.method)
@@ -84,9 +91,26 @@ class BridgeClientTest {
             ),
         )
 
-        val list = runBlocking { client.sessions() }
+        val list = runBlocking { client.sessions() }.workspaces
 
         assertEquals("bypass", list[0].yoloMode)
+    }
+
+    @Test
+    fun sessionsDecodesHostInfo() {
+        server.enqueue(
+            MockResponse().setBody(
+                """{"workspaces":[],
+                "host":{"name":"home-server","kind":"tmux","capabilities":{"tabs":false,"feed":false}}}""",
+            ),
+        )
+
+        val host = runBlocking { client.sessions() }.host
+
+        assertEquals("home-server", host.name)
+        assertEquals(HostKind.TMUX, host.kind)
+        assertFalse(host.capabilities.tabs)
+        assertFalse(host.capabilities.feed)
     }
 
     @Test

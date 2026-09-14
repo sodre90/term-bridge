@@ -71,9 +71,38 @@ data class TerminalPane(
     val kind: String = "",
 )
 
-/** Envelope returned by `GET /sessions`. */
+/** Envelope returned by `GET /sessions`; mirrors bridge/internal/wire/sessions.go's
+ *  SessionsResponse. [host] defaults to a cmux host so a bridge too old to
+ *  send it behaves exactly as before. */
 @Serializable
-data class WorkspacesResponse(val workspaces: List<Workspace> = emptyList())
+data class WorkspacesResponse(
+    val workspaces: List<Workspace> = emptyList(),
+    val host: HostInfo = HostInfo(),
+)
+
+/** Which machine and backend an agent fronts (wire HostInfo). [kind] is one of
+ *  [HostKind]; [name] the host's short hostname. */
+@Serializable
+data class HostInfo(
+    val name: String = "",
+    val kind: String = HostKind.CMUX,
+    val capabilities: HostCapabilities = HostCapabilities(),
+)
+
+object HostKind {
+    const val CMUX = "cmux"
+    const val TMUX = "tmux"
+}
+
+/** What the host can do, so the app offers only that (wire HostCapabilities).
+ *  Defaults describe cmux: tabs exist and the Inbox has structured prompts. */
+@Serializable
+data class HostCapabilities(
+    /** A pane holds several surfaces; "add as tab" placement is offered. */
+    val tabs: Boolean = true,
+    /** The Inbox carries structured prompts with replies for this host. */
+    val feed: Boolean = true,
+)
 
 /** Body of `GET /version` -- mirrors bridge/internal/wire/version.go's
  *  VersionResponse. Defaulted so an agent too old to serve the route (or one

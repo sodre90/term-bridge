@@ -381,6 +381,27 @@ no darwin-only assumptions found by grep).
 10. What `mobile.workspace.list` returns as `preview` for a Claude Code
     pane versus a plain shell, to size the screen-text classifier.
 
+### Verified 2026-09-14 on 192.168.1.160 (Fedora 44, tmux 3.7c)
+
+Items 5–8 plus the control-mode question, all in a scratch session; the
+hook items (1–4, 9) and item 10 are still open and gate phase 5 only.
+
+Item | Result
+--- | ---
+5 | `capture-pane -e -p -N` of Claude Code's trust prompt saved as `bridge/internal/host/tmuxhost/testdata/claude-trust-prompt.capture`. Besides SGR it carries **OSC 8 hyperlinks** (`ESC]8;id=…;url ESC\`), so the parser skips every OSC (ESC\ or BEL terminated), not only CSI.
+6 | Pending (phase 3 reads the app's id handling; the bridge side is `Host.ValidID`).
+7 | Confirmed: `resize-window -x 60 -y 20` flips `window-size` from `latest` (global) to `manual`; `set-option -wu window-size` unsets it again. With no client attached the window keeps 60x20 after the unset — expected, there is no client size to follow.
+8 | `#{start_time}` renders as plain epoch seconds (`1789367814`). `display -p -F … \; capture-pane -e -p -N` returns the format line first, then the screen rows, in one invocation.
+control mode | `tmux -C attach -t <s> -f no-output` (stdin must stay open) reports `%unlinked-window-add/-close/-renamed` and `%sessions-changed` for **every** session, `%window-add/-renamed`/`%layout-change` for the attached one, and no `%output`. Enough for a "list changed" signal across all sessions from one client.
+hairpin | From the server, `https://sodre-cmux.mywire.org/agent/tunnel` reaches nginx (403 without a client cert); a loopback tunnel to the relay without the edge token is refused (401). The bootstrap vhost (:8444) is **not** exposed on the owner's nginx, so a new tenant is registered by hand: CSR → `POST /tenants/register` on the relay's loopback port with `X-Edge-Token`.
+tmux version | 3.7c on the server (the survey was written against the Mac's 3.6b man page; every format used above exists in both).
+
+Wire deferrals decided while implementing phase 2: host identity and
+capabilities ride on `GET /sessions` (`host` object beside `workspaces`),
+which the app already polls and which the relay never parses — the pairing
+DTO copy and the `session` field on `CreateWorkspaceRequest` move to phase
+3, where the switcher and the create dialog first consume them.
+
 ## Phasing (each its own branch; detail in the plan)
 
 1. **Bridge: extract `Host`**, `cmuxhost` as a pure move, server on the

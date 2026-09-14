@@ -41,5 +41,5 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 			workspaces[i].YoloMode = s.yolo.Mode(workspaces[i].ID)
 		}
 	}
-	httpjson.Write(w, http.StatusOK, map[string]any{"workspaces": workspaces})
+	httpjson.Write(w, http.StatusOK, wire.SessionsResponse{Workspaces: workspaces, Host: s.hostInfo})
 }

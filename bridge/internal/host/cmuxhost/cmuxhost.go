@@ -22,6 +22,8 @@ func New(c *cmux.Client) *Host { return &Host{client: c} }
 
 var _ host.Host = (*Host)(nil)
 
+func (h *Host) Kind() string { return host.KindCmux }
+
 // Capabilities: cmux has tabs (several surfaces per pane) and a native
 // agent feed.
 func (h *Host) Capabilities() host.Capabilities {

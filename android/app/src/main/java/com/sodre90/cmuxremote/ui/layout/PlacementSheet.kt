@@ -130,7 +130,7 @@ private fun PlacementPicker(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
-    PlacementChips(placement, onSelect = { placement = it })
+    PlacementChips(placement, offered = offeredPlacements(state.tabs), onSelect = { placement = it })
     state.error?.let { Text(actionOutcomeText(it), color = MaterialTheme.colorScheme.error) }
     val target = miniature.targetSurfaceId
     if (target == null) {
@@ -335,13 +335,18 @@ private val CHIP_ORDER = listOf(
     PanePlacement.TAB,
 )
 
+/** The placements a host can honour: every split, plus a tab only where the
+ *  host has tabs (see HostCapabilities.tabs). */
+internal fun offeredPlacements(tabs: Boolean): List<String> =
+    if (tabs) CHIP_ORDER else CHIP_ORDER.filterNot { it == PanePlacement.TAB }
+
 @Composable
-private fun PlacementChips(selected: String, onSelect: (String) -> Unit) {
+private fun PlacementChips(selected: String, offered: List<String>, onSelect: (String) -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
     ) {
-        CHIP_ORDER.forEach { placement ->
+        offered.forEach { placement ->
             val description = stringResource(placementLabel(placement))
             FilterChip(
                 selected = placement == selected,

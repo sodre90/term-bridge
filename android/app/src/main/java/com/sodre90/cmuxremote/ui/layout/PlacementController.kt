@@ -21,6 +21,8 @@ sealed interface PlacementState {
         val workspaceId: String,
         val layout: WorkspaceLayout,
         val titles: Map<String, String>,
+        /** Whether the host has tabs at all; a tmux host offers only splits. */
+        val tabs: Boolean = true,
         val busy: Boolean = false,
         val error: ActionOutcome.Failed? = null,
     ) : PlacementState
@@ -48,7 +50,12 @@ class PlacementController(
         _state.value = PlacementState.Loading
         scope.launch {
             _state.value = try {
-                PlacementState.Ready(workspaceId, bridge.layout(workspaceId), titles)
+                PlacementState.Ready(
+                    workspaceId,
+                    bridge.layout(workspaceId),
+                    titles,
+                    tabs = bridge.hostInfo.value.capabilities.tabs,
+                )
             } catch (e: Exception) {
                 PlacementState.Failed(ActionOutcome.Failed(actionFailureOf(e), e.message))
             }

@@ -1,5 +1,34 @@
 package wire
 
+// SessionsResponse is the body of GET /sessions: the live workspace list
+// plus the identity of the host serving it. Host rides on the response the
+// app already polls -- rather than on pairing, which the relay would have to
+// carry blind -- so a capability change after an agent upgrade reaches the
+// phone on its next refresh with no re-pair.
+type SessionsResponse struct {
+	Workspaces []Workspace `json:"workspaces"`
+	Host       HostInfo    `json:"host"`
+}
+
+// HostInfo names the machine and backend behind an agent. Name is the
+// host's short hostname, Kind one of "cmux" | "tmux" (host.Kind*), and
+// Capabilities what the app may offer for it. Mirrored in Kotlin as
+// HostInfo / HostCapabilities, whose defaults describe a cmux host so an
+// older bridge that sends nothing here behaves as before.
+type HostInfo struct {
+	Name         string           `json:"name"`
+	Kind         string           `json:"kind"`
+	Capabilities HostCapabilities `json:"capabilities"`
+}
+
+// HostCapabilities is the wire form of host.Capabilities.
+type HostCapabilities struct {
+	// Tabs: "add as tab" placement exists (a pane holds several surfaces).
+	Tabs bool `json:"tabs"`
+	// Feed: the Inbox has structured prompts and replies for this host.
+	Feed bool `json:"feed"`
+}
+
 // Workspace is the app-facing representation of a cmux workspace and its
 // terminal surfaces (panes). Each pane's ID is a streamable terminal-surface id
 // the app opens via /terminal/{id}.

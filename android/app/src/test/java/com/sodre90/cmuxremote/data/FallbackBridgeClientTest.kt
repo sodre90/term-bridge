@@ -8,6 +8,7 @@ import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.SocketPolicy
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -44,6 +45,23 @@ class FallbackBridgeClientTest {
             .readTimeout(connectTimeoutMs, TimeUnit.MILLISECONDS)
             .build()
         return BridgeClient(http, server.url("/").toString())
+    }
+
+    @Test
+    fun sessionsRemembersTheHostBehindThePairing() {
+        primaryServer.enqueue(
+            MockResponse().setBody(
+                """{"workspaces":[],
+                "host":{"name":"home-server","kind":"tmux","capabilities":{"tabs":false,"feed":false}}}""",
+            ),
+        )
+        val fb = FallbackBridgeClient(primary = { clientFor(primaryServer) }, fallback = { clientFor(fallbackServer) })
+        assertTrue(fb.hostInfo.value.capabilities.tabs)
+
+        runBlocking { fb.sessions() }
+
+        assertEquals("home-server", fb.hostInfo.value.name)
+        assertFalse(fb.hostInfo.value.capabilities.tabs)
     }
 
     @Test

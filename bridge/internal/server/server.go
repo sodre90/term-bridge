@@ -5,6 +5,8 @@ package server
 
 import (
 	"net/http"
+	"os"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -14,12 +16,14 @@ import (
 	"github.com/sodre90/cmux-bridge/internal/host"
 	"github.com/sodre90/cmux-bridge/internal/host/cmuxhost"
 	"github.com/sodre90/cmux-bridge/internal/ratelimit"
+	"github.com/sodre90/cmux-bridge/internal/wire"
 	"github.com/sodre90/cmux-bridge/internal/yolo"
 )
 
 // Server holds the dependencies shared by all handlers.
 type Server struct {
 	host         host.Host
+	hostInfo     wire.HostInfo
 	store        *auth.Store
 	hub          *hub
 	terminalPoll time.Duration // how often WS /terminal re-replays for output
@@ -101,12 +105,30 @@ func New(c *cmux.Client, s *auth.Store) *Server {
 func NewWithHost(h host.Host, s *auth.Store) *Server {
 	return &Server{
 		host:             h,
+		hostInfo:         describeHost(h),
 		store:            s,
 		hub:              newHub(),
 		terminalPoll:     250 * time.Millisecond,
 		replayGrace:      terminalReplayGrace,
 		testPushCooldown: ratelimit.NewCooldown(testPushDeviceCooldown),
 		sockets:          newSocketTracker(),
+	}
+}
+
+// describeHost is what GET /sessions tells the app about this agent. The
+// name is the short hostname, which is how the owner already tells the Mac
+// and the home server apart.
+func describeHost(h host.Host) wire.HostInfo {
+	name, _ := os.Hostname()
+	name, _, _ = strings.Cut(name, ".")
+	caps := h.Capabilities()
+	return wire.HostInfo{
+		Name: name,
+		Kind: h.Kind(),
+		Capabilities: wire.HostCapabilities{
+			Tabs: caps.Tabs,
+			Feed: caps.Feed,
+		},
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/sodre90/cmux-bridge/internal/auth"
@@ -187,5 +188,30 @@ echo '{"workspaces":[{"id":"WS1","current_directory":"` + alias + `","title":"t"
 	}
 	if len(body.Workspaces) != 1 || body.Workspaces[0].CWD != real {
 		t.Fatalf("want cwd resolved to canonical %q, got %+v", real, body.Workspaces)
+	}
+}
+
+func TestSessionsCarriesHostIdentity(t *testing.T) {
+	script := "#!/bin/sh\ncat <<'JSON'\n" + fakeWorkspaceList + "\nJSON\n"
+	s, tok := newTestServer(t, script)
+	srv := httptest.NewServer(s.Handler())
+	defer srv.Close()
+
+	req, _ := http.NewRequest("GET", srv.URL+"/sessions", nil)
+	req.Header.Set("Authorization", "Bearer "+tok)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var body wire.SessionsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Host.Kind != "cmux" || !body.Host.Capabilities.Tabs || !body.Host.Capabilities.Feed {
+		t.Fatalf("host = %+v, want a cmux host with tabs and feed", body.Host)
+	}
+	if body.Host.Name == "" || strings.Contains(body.Host.Name, ".") {
+		t.Fatalf("host name %q should be the short hostname", body.Host.Name)
 	}
 }

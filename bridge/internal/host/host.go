@@ -35,6 +35,12 @@ type Capabilities struct {
 	Feed bool
 }
 
+// Kind names a backend on the wire (wire.HostInfo.Kind).
+const (
+	KindCmux = "cmux"
+	KindTmux = "tmux"
+)
+
 // Pane is one pane of a workspace with its frame in the backend's own
 // units; the server normalises frames onto the unit square itself. A frame
 // of all zeros means the backend has no geometry for the pane yet.
@@ -65,6 +71,8 @@ type Replay struct {
 // mutation names its target by id; an implementation must never fall back
 // to "whatever is focused" when given none.
 type Host interface {
+	// Kind is one of the Kind* constants.
+	Kind() string
 	Capabilities() Capabilities
 	// ValidID reports whether id has the shape of one of this host's
 	// workspace/surface ids, so the server can refuse a malformed one before

@@ -13,7 +13,6 @@ import com.sodre90.cmuxremote.model.RenameWorkspaceRequest
 import com.sodre90.cmuxremote.model.SelectWorkspaceRequest
 import com.sodre90.cmuxremote.model.SetYoloModeRequest
 import com.sodre90.cmuxremote.model.VersionResponse
-import com.sodre90.cmuxremote.model.Workspace
 import com.sodre90.cmuxremote.model.WorkspaceLayout
 import com.sodre90.cmuxremote.model.WorkspacesResponse
 import kotlinx.coroutines.Dispatchers
@@ -39,12 +38,12 @@ class BridgeClient(
 ) {
     private val root = baseUrl.trimEnd('/')
 
-    suspend fun sessions(): List<Workspace> = withContext(Dispatchers.IO) {
+    suspend fun sessions(): WorkspacesResponse = withContext(Dispatchers.IO) {
         val request = Request.Builder().url("$root/sessions").get().build()
         http.newCall(request).execute().use { resp ->
             val body = resp.body?.string().orEmpty()
             if (!resp.isSuccessful) throw BridgeException(resp.code, body)
-            BridgeJson.decodeFromString(WorkspacesResponse.serializer(), body).workspaces
+            BridgeJson.decodeFromString(WorkspacesResponse.serializer(), body)
         }
     }
 
