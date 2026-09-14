@@ -43,6 +43,7 @@ class TerminalPaneActionsTest {
     private lateinit var server: MockWebServer
     private lateinit var host: TestViewModelHost
     private val seen = mutableListOf<RecordedRequest>()
+    private var sessionsHost = ""
 
     private class FakeGateway(private val bridge: FallbackBridgeClient) : BridgeGateway {
         override fun activeBridge(): FallbackBridgeClient = bridge
@@ -73,7 +74,8 @@ class TerminalPaneActionsTest {
             override fun dispatch(request: RecordedRequest): MockResponse = when (request.path) {
                 "/sessions" -> MockResponse().setBody(
                     """{"workspaces":[{"id":"ws-a","cwd":"/x","title":"A","terminals":[{"id":"s-other"}]},
-                        {"id":"ws-b","cwd":"/y","title":"B","terminals":[{"id":"s-here","title":"B shell"}]}]}""",
+                        {"id":"ws-b","cwd":"/y","title":"B","terminals":[{"id":"s-here","title":"B shell"}]}]
+                        $sessionsHost}""",
                 )
                 "/sessions/ws-b/panes" -> recorded(request, """{"surface_id":"s-new","pane_id":"p-b"}""")
                 "/sessions/ws-b/layout" -> MockResponse().setBody(
@@ -121,6 +123,15 @@ class TerminalPaneActionsTest {
     @Test
     fun theOwningWorkspaceIsTheOneWhoseTerminalsHoldThisSurface() {
         assertEquals("ws-b", viewModel().workspaceId.value)
+    }
+
+    @Test
+    fun aHostWithoutTabsHidesTheNewTabActionAndACmuxHostKeepsIt() {
+        assertTrue(viewModel().hostHasTabs())
+        host.clearViewModels()
+
+        sessionsHost = ""","host":{"name":"home-server","kind":"tmux","capabilities":{"tabs":false,"feed":false}}"""
+        assertEquals(false, viewModel().hostHasTabs())
     }
 
     @Test

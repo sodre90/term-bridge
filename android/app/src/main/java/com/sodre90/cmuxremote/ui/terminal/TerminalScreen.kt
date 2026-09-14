@@ -339,6 +339,7 @@ fun TerminalScreen(
                     }
                     PaneActionsMenu(
                         enabled = workspaceId != null,
+                        tabs = vm.hostHasTabs(),
                         onSplit = { vm.openPlacement() },
                         onNewTab = { vm.newTab(onCreated = onOpenSurface) },
                         onShowOnMac = { vm.showOnMac() },
@@ -858,11 +859,13 @@ private fun DeliveryStatusLabelLostInputPreview() {
  * The pane's own actions, behind one icon: the bar has no room for more
  * words next to Refresh and Wrap. Disabled until the owning workspace is
  * known, since every route is keyed by it. Splitting joins this menu once
- * the placement preview exists.
+ * the placement preview exists; the tab entry only exists on a host that
+ * has tabs.
  */
 @Composable
 private fun PaneActionsMenu(
     enabled: Boolean,
+    tabs: Boolean,
     onSplit: () -> Unit,
     onNewTab: () -> Unit,
     onShowOnMac: () -> Unit,
@@ -881,13 +884,15 @@ private fun PaneActionsMenu(
                     onSplit()
                 },
             )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.terminal_new_tab)) },
-                onClick = {
-                    open = false
-                    onNewTab()
-                },
-            )
+            if (tabs) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.terminal_new_tab)) },
+                    onClick = {
+                        open = false
+                        onNewTab()
+                    },
+                )
+            }
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.terminal_show_on_mac)) },
                 onClick = {

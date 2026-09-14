@@ -211,6 +211,10 @@ class TerminalViewModel(
         mutate(ActionOutcome.ShownOnMac) { client, ws -> client.selectWorkspace(ws, surfaceId) }
     }
 
+    /** Whether the host behind this terminal has tabs; a tmux pane holds
+     *  exactly one surface, so its menu offers no "new tab". */
+    fun hostHasTabs(): Boolean = bridge.activeBridge()?.hostInfo?.value?.capabilities?.tabs ?: true
+
     /** A new terminal tab beside this one in the same pane; the new surface
      *  id goes to [onCreated] so the caller can switch to it. */
     fun newTab(onCreated: (surfaceId: String) -> Unit) {
