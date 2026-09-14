@@ -141,7 +141,7 @@ surface (tab) | **= pane** | one surface per pane; `CreateTab` → `ErrUnsupport
 `workspace.select` | `select-window -t @N` (and `switch-client` for attached clients) | headless → mostly a no-op that matters when someone is SSH-attached
 `workspace.close` / `surface.close` | `kill-window -t @N` / `kill-pane -t %N` | confirmed on the phone, as today
 `mobile.terminal.input/paste` | `send-keys -t %N -l` (`-H` for control bytes) | paste wrapped in bracketed-paste sequences by the bridge iff `#{bracket_paste_flag}` (the app already conditions on the mode)
-`mobile.terminal.viewport` | `resize-window -t @N -x C -y R` while a phone views the window; `set-option -wu -t @N window-size` when the last viewer leaves | see *Resize*
+`mobile.terminal.viewport` | `resize-window -t @N -x C -y R` while a phone views the window, plus `resize-pane -Z -t %N` when the window is split; `set-option -wu -t @N window-size` (and an unzoom) when the last viewer leaves | see *Resize*
 `mobile.terminal.replay` | one invocation: `display -p -t %N -F '…' \; capture-pane -e -p -N -t %N [-S -n]` so cursor/modes/size and text come from the same server turn | see *Render grid*
 `cmux events` | one long-lived `tmux -C attach` process with `refresh-client -f no-output` | structural events only (`%sessions-changed`, `%window-*`, `%unlinked-window-*`, `%layout-change`) → `layout` events; `%exit` → reconnect with backoff. Control mode is *session-scoped* (`%output` covers only the attached session), so v1 polls `capture-pane` for content exactly as the Mac path polls replay today; `%output`-driven refresh is a follow-up
 
@@ -191,7 +191,12 @@ sets it, and per the man page **automatically switches that window to
 has resized. Accepted and made explicit: while any phone views a window it
 is sized to the phone; when the last viewer leaves, the bridge runs
 `set-option -wu -t @N window-size` so the window falls back to the global
-option and an SSH-attached human gets their own size back. Headless makes
+option and an SSH-attached human gets their own size back. A pane of a
+split window would otherwise get only its share of the phone's columns, so
+the bridge zooms it (`resize-pane -Z`, which toggles the window's zoom
+whichever pane it names — a sibling's zoom is dropped first) for as long as
+the phone views it and unzooms on release if the window is still zoomed
+(built: phase 6 follow-up, pxu.8). Headless makes
 the "phone reflows the desktop user" concern mostly moot;
 `Capabilities.ViewportPerClient=false` lets the app know two phones on one
 pane share a size. Two tenants viewing the same pane at different widths

@@ -23,7 +23,8 @@ running cmux, and switches between them.
   pane a terminal, across all sessions on the server; list, render
   (`capture-pane -e` parsed into the same cell grid the app already draws,
   incl. 16/256/truecolour, italic, underline, wide chars), input, paste,
-  resize (window sized to the phone while viewed, released afterwards),
+  resize (window sized to the phone while viewed, a pane of a split window
+  zoomed so it gets the whole viewport; both released afterwards),
   split, rename, create, close, and structural change events from a
   control-mode client. Ids are tmux's `$n`/`%n`; every command targets one
   explicitly. Ships as a systemd user unit (`deploy/term-bridge-agent.service`,

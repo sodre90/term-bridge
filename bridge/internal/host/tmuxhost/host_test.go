@@ -3,6 +3,7 @@ package tmuxhost
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -30,7 +31,7 @@ case "$*" in
   "display-message -p -t "*"#{socket_path}"*"#{pane_current_path}") cat "$D/locate";;
   "display-message -p -t "*"#{pane_current_path}") echo /home/sodre90/prj;;
   "capture-pane -p -J -t "*) cat "$D/screen";;
-  "display-message -p -t "*"#{window_id}"*"#{window_height}") cat "$D/window-size";;
+  "display-message -p -t "*"#{window_id}"*"#{pane_active}") cat "$D/window-size";;
 
   "display-message -p -t %9 -F "*"; capture-pane"*) cat "$D/replay";;
   "display-message -p -t %404"*) echo "can't find pane: %404" >&2; exit 1;;
@@ -195,7 +196,7 @@ func TestCreateWorkspaceStartsAServerWhenThereIsNone(t *testing.T) {
 func TestInputPasteAndResize(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
-	f.write(t, "window-size", row("@3", "100", "30"))
+	f.write(t, "window-size", row("@3", "100", "30", "1", "0", "1"))
 	if err := f.h.Input(ctx, "tmux-"+epoch+"-p9", "ls\r\x1b[A"); err != nil {
 		t.Fatal(err)
 	}
@@ -222,8 +223,50 @@ func TestInputPasteAndResize(t *testing.T) {
 	if strings.Count(log, "resize-window") != 1 {
 		t.Fatalf("a resize to the current size must be skipped:\n%s", log)
 	}
+	if strings.Contains(log, "resize-pane -Z") {
+		t.Fatalf("a window with one pane is never zoomed:\n%s", log)
+	}
 	if pasted, _ := os.ReadFile(filepath.Join(f.dir, "pasted")); string(pasted) != "echo hi\n" {
 		t.Fatalf("pasted = %q", pasted)
+	}
+}
+
+func TestResizeZoomsTheViewedPaneOfASplitWindow(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	pane := "tmux-" + epoch + "-p9"
+
+	f.write(t, "window-size", row("@3", "80", "24", "2", "0", "1"))
+	if err := f.h.Resize(ctx, pane, 80, 24); err != nil {
+		t.Fatal(err)
+	}
+	if log := f.log(); !strings.HasSuffix(log, "resize-pane -Z -t %9\n") || strings.Contains(log, "resize-window") {
+		t.Fatalf("an unzoomed split window at the right size is zoomed on the viewed pane only:\n%s", log)
+	}
+
+	f.write(t, "window-size", row("@3", "80", "24", "2", "1", "1"))
+	if err := f.h.Resize(ctx, pane, 80, 24); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Count(f.log(), "resize-pane -Z") != 1 {
+		t.Fatalf("a pane already zoomed stays as it is:\n%s", f.log())
+	}
+
+	f.write(t, "window-size", row("@3", "80", "24", "2", "1", "0"))
+	if err := f.h.Resize(ctx, pane, 80, 24); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasSuffix(f.log(), "resize-pane -Z -t @3\nresize-pane -Z -t %9\n") {
+		t.Fatalf("a sibling's zoom is dropped before the viewed pane is zoomed:\n%s", f.log())
+	}
+
+	f.h.releaseWindowSize("@3", true)
+	if !strings.HasSuffix(f.log(), "set-option -wu -t @3 window-size\nif-shell -F -t @3 #{window_zoomed_flag} resize-pane -Z -t @3\n") {
+		t.Fatalf("release unzooms only a window still zoomed:\n%s", f.log())
+	}
+	f.h.releaseWindowSize("@3", false)
+	if strings.Count(f.log(), "if-shell") != 1 {
+		t.Fatalf("a window the phone never zoomed is left alone:\n%s", f.log())
 	}
 }
 
@@ -308,8 +351,9 @@ func TestReplayRefusesAStaleEpochAndAShortCapture(t *testing.T) {
 func TestWindowSizesReleaseAfterTheLastViewerLeaves(t *testing.T) {
 	now := time.Unix(1000, 0)
 	var released []string
-	w := newWindowSizes(func(id string) { released = append(released, id) }, func() time.Time { return now })
+	w := newWindowSizes(func(id string, zoomed bool) { released = append(released, fmt.Sprintf("%s zoomed=%t", id, zoomed)) }, func() time.Time { return now })
 	w.viewed("@3")
+	w.zoomed("@3")
 	w.touched("@9") // never sized: not tracked
 	now = now.Add(3 * time.Second)
 	w.touched("@3")
@@ -318,7 +362,7 @@ func TestWindowSizesReleaseAfterTheLastViewerLeaves(t *testing.T) {
 		t.Fatalf("a window replayed 3s ago must stay sized: %d %v", n, released)
 	}
 	now = now.Add(3 * time.Second)
-	if n := w.sweep(); n != 1 || len(released) != 1 || released[0] != "@3" {
+	if n := w.sweep(); n != 1 || len(released) != 1 || released[0] != "@3 zoomed=true" {
 		t.Fatalf("sweep = %d, released %v", n, released)
 	}
 	if n := w.sweep(); n != 0 {

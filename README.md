@@ -179,8 +179,9 @@ Defense in depth, all the way to the host's own socket:
   cursor, and scrollback; fit-to-width sizing, pinch-to-zoom, a word-wrap
   toggle, text selection, a compact `←↑↓→` D-pad, an Enter key, and DECCKM-aware
   cursor keys. Input/paste/resize go upstream; replay + live output come down.
-  On tmux, resizing sets the window size while the phone is viewing and
-  releases it back to the attached client's size afterwards.
+  On tmux, resizing sets the window size while the phone is viewing (and
+  zooms the viewed pane when the window is split, so it gets the whole
+  viewport) and releases both back to the attached client afterwards.
 - **Agent inbox** — answer blocking prompts (permission requests and questions)
   via `POST /feed/{id}/reply`. Plan-approval (`exitPlan`) prompts aren't wired
   into the Inbox yet — their reply schema isn't confirmed live. On cmux the

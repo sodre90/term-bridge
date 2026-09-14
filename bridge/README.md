@@ -226,8 +226,10 @@ between hosts.
 What differs from cmux, by design: a pane is its own only surface, so there
 is no "add as tab" (the app hides it from the host's advertised
 capabilities); a window a phone is viewing is sized to the phone
-(`resize-window`) and handed back to attached clients a few seconds after the
-phone leaves; and the Inbox, YOLO mode, attention stripes and pushes cover
+(`resize-window`), a viewed pane in a split window is zoomed (`resize-pane
+-Z`) so it gets the whole viewport rather than a share of it, and both are
+handed back to attached clients a few seconds after the phone leaves; and
+the Inbox, YOLO mode, attention stripes and pushes cover
 Claude Code panes only, through its hooks, since tmux itself has no notion
 of an agent prompt (the design: `docs/superpowers/specs/2026-09-14-linux-tmux-host-design.md`).
 
@@ -566,7 +568,7 @@ It never restores sessions. Tests use a fake `cmux` binary and never touch
 the real socket.
 
 On a tmux host the same routes map onto `list-windows`/`list-panes`,
-`capture-pane`, `send-keys`/`paste-buffer`, `resize-window`, `new-window`,
+`capture-pane`, `send-keys`/`paste-buffer`, `resize-window`, `resize-pane -Z`, `new-window`,
 `split-window`, `rename-window`, `select-window` and `kill-window`/`kill-pane`,
 always targeting a window or pane by id (`$n`/`%n`), never "the current
 one". A control-mode client (`tmux -C attach -f no-output`) supplies the
