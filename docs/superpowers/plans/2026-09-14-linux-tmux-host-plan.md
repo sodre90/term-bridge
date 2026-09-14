@@ -149,8 +149,8 @@ first draft below are noted inline.
 - Live (emulator, 2026-09-14): in-place upgrade migrated the Linux
   pairing; the Mac paired as a second host; switching, gating, per-host
   copy, cross-host push fall-through and deep-link host selection all
-  verified. The Samsung upgrade is still pending -- it is the only device
-  with real legacy data, so it goes last.
+  verified. The Samsung (the only device with real legacy data) upgraded
+  in place the same day and paired home-server as its second host.
 
 ## Phase 4 — bridge: `tmuxhost` (cmux-app-pxu.4)
 
