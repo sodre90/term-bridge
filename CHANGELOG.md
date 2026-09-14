@@ -12,6 +12,8 @@ every section after it itemizes changes individually. Purely internal refactors
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-09-14
+
 The phone now reaches a headless Linux box running tmux, next to the Mac
 running cmux, and switches between them.
 
