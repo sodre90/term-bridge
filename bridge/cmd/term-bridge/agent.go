@@ -56,7 +56,7 @@ const (
 )
 
 func defaultAgentConfigPath() string {
-	return cli.ConfigPath("cmux-bridge", "agent.toml")
+	return cli.ConfigPath("term-bridge", "agent.toml")
 }
 
 // attachmentSweepInterval is how often landed images past their retention

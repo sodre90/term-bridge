@@ -51,9 +51,9 @@ func defaults() Config {
 	return Config{
 		Listen:     "127.0.0.1:8765",
 		CmuxBin:    "cmux",
-		TokenStore: expandHome("~/.config/cmux-relay/store.db"),
-		CACert:     expandHome("~/.config/cmux-relay/ca.crt"),
-		CAKey:      expandHome("~/.config/cmux-relay/ca.key"),
+		TokenStore: expandHome("~/.config/term-bridge-relay/store.db"),
+		CACert:     expandHome("~/.config/term-bridge-relay/ca.crt"),
+		CAKey:      expandHome("~/.config/term-bridge-relay/ca.key"),
 	}
 }
 

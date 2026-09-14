@@ -103,12 +103,12 @@ func agentDefaults() AgentConfig {
 		Host:            HostCmux,
 		CmuxBin:         "cmux",
 		TmuxBin:         "tmux",
-		IdentityKey:     "~/.config/cmux-bridge/identity.key",
-		SessionStore:    "~/.config/cmux-bridge/sessions.db",
-		YoloStore:       "~/.config/cmux-bridge/yolo.db",
-		DirectAuthStore: "~/.config/cmux-bridge/direct-auth.db",
-		StatusFile:      "~/.config/cmux-bridge/status.json",
-		AttachmentsDir:  "~/.config/cmux-bridge/attachments",
+		IdentityKey:     "~/.config/term-bridge/identity.key",
+		SessionStore:    "~/.config/term-bridge/sessions.db",
+		YoloStore:       "~/.config/term-bridge/yolo.db",
+		DirectAuthStore: "~/.config/term-bridge/direct-auth.db",
+		StatusFile:      "~/.config/term-bridge/status.json",
+		AttachmentsDir:  "~/.config/term-bridge/attachments",
 		LogFile:         defaultLogFile(),
 	}
 }
@@ -117,7 +117,7 @@ func agentDefaults() AgentConfig {
 // logs to stderr for whatever supervises it (journald under systemd).
 func defaultLogFile() string {
 	if runtime.GOOS == "darwin" {
-		return "~/Library/Logs/cmux-bridge.log"
+		return "~/Library/Logs/term-bridge.log"
 	}
 	return ""
 }

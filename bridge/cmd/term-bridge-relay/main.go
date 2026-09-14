@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/sodre90/term-bridge/internal/cli"
 	"github.com/sodre90/term-bridge/internal/logging"
 	"github.com/sodre90/term-bridge/internal/version"
 )
@@ -12,6 +13,10 @@ func main() {
 	logging.Init()
 	if len(os.Args) < 2 {
 		usage()
+		os.Exit(2)
+	}
+	if err := cli.RefuseLegacyConfigDir("cmux-relay", "term-bridge-relay"); err != nil {
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
 	}
 	switch os.Args[1] {

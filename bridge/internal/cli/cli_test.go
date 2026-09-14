@@ -8,9 +8,36 @@ import (
 )
 
 func TestConfigPath(t *testing.T) {
-	p := filepath.ToSlash(ConfigPath("cmux-relay", "config.toml"))
-	if !strings.HasSuffix(p, ".config/cmux-relay/config.toml") {
+	p := filepath.ToSlash(ConfigPath("term-bridge-relay", "config.toml"))
+	if !strings.HasSuffix(p, ".config/term-bridge-relay/config.toml") {
 		t.Fatalf("ConfigPath = %q", p)
+	}
+}
+
+func TestRefuseLegacyConfigDir(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	legacy := filepath.Join(home, ".config", "cmux-bridge")
+	current := filepath.Join(home, ".config", "term-bridge")
+
+	if err := RefuseLegacyConfigDir("cmux-bridge", "term-bridge"); err != nil {
+		t.Fatalf("a fresh machine must pass: %v", err)
+	}
+	if err := os.MkdirAll(legacy, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	err := RefuseLegacyConfigDir("cmux-bridge", "term-bridge")
+	if err == nil {
+		t.Fatal("an unmoved legacy directory must be refused")
+	}
+	if !strings.Contains(err.Error(), legacy) || !strings.Contains(err.Error(), current) {
+		t.Fatalf("the error must name both directories: %v", err)
+	}
+	if err := os.MkdirAll(current, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := RefuseLegacyConfigDir("cmux-bridge", "term-bridge"); err != nil {
+		t.Fatalf("a moved (or copied) directory must pass: %v", err)
 	}
 }
 

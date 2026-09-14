@@ -150,17 +150,17 @@ func TestMatchingDevicesPrefersAnExactHashOverAPrefix(t *testing.T) {
 // so the command read the default store instead of the one named -- the same
 // wrong-database trap, one layer up from cmux-app-xdc.
 func TestAdminArgsRefuseAFlagBehindTheSubcommand(t *testing.T) {
-	if _, _, ok := parseAdminArgs("devices", []string{"list", "--config", "/etc/cmux-relay/config.toml"}); ok {
+	if _, _, ok := parseAdminArgs("devices", []string{"list", "--config", "/etc/term-bridge-relay/config.toml"}); ok {
 		t.Fatal("a flag after the subcommand must be refused, not silently ignored")
 	}
 }
 
 func TestAdminArgsReadTheConfigFlagBeforeTheSubcommand(t *testing.T) {
-	cfgPath, rest, ok := parseAdminArgs("devices", []string{"--config", "/etc/cmux-relay/config.toml", "revoke", "abcd"})
+	cfgPath, rest, ok := parseAdminArgs("devices", []string{"--config", "/etc/term-bridge-relay/config.toml", "revoke", "abcd"})
 	if !ok {
 		t.Fatal("the documented argument order must parse")
 	}
-	if cfgPath != "/etc/cmux-relay/config.toml" {
+	if cfgPath != "/etc/term-bridge-relay/config.toml" {
 		t.Fatalf("cfgPath = %q", cfgPath)
 	}
 	if len(rest) != 2 || rest[0] != "revoke" || rest[1] != "abcd" {

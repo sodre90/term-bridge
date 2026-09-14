@@ -22,7 +22,7 @@ import (
 )
 
 func defaultConfigPath() string {
-	return cli.ConfigPath("cmux-relay", "config.toml")
+	return cli.ConfigPath("term-bridge-relay", "config.toml")
 }
 
 // isLoopbackAddr reports whether addr (a "host:port" listen address, as

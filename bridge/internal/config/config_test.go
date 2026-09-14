@@ -93,14 +93,14 @@ func TestLoadEnvOverridesApplyWhenFileMissing(t *testing.T) {
 func TestExpandHome(t *testing.T) {
 	home, _ := os.UserHomeDir()
 	p := filepath.Join(t.TempDir(), "c.toml")
-	if err := os.WriteFile(p, []byte(`token_store = "~/.config/cmux-bridge/devices.json"`), 0o644); err != nil {
+	if err := os.WriteFile(p, []byte(`token_store = "~/.config/term-bridge/devices.json"`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	cfg, err := Load(p)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := filepath.Join(home, ".config/cmux-bridge/devices.json")
+	want := filepath.Join(home, ".config/term-bridge/devices.json")
 	if cfg.TokenStore != want {
 		t.Fatalf("expandHome failed: got %q want %q", cfg.TokenStore, want)
 	}
