@@ -101,9 +101,15 @@ running cmux, and switches between them.
   one request instead of `/sessions` plus `/feed/pending`, and a feed burst one
   instead of three. The app still asks `/feed/pending` when a bridge leaves
   the count out.
+- The workspace list stops refetching while a terminal covers it. Every
+  workspace event used to refresh the hidden list (11 `/sessions` in 70 s
+  with a busy pane open); now the events collapse into one refetch when the
+  list comes back.
 
 ### Fixed
 
+- `term-bridge status` labels the backend line by host kind (`tmux reached:`
+  on a Linux host) instead of always saying `cmux reached:`.
 - The agent exits promptly on SIGTERM. It used to sit in the relay tunnel's
   accept loop until systemd aborted it 45 s later (launchd would have killed
   it the same way), so every restart stalled.
