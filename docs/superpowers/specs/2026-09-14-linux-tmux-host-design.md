@@ -395,6 +395,8 @@ Item | Result
 control mode | `tmux -C attach -t <s> -f no-output` (stdin must stay open) reports `%unlinked-window-add/-close/-renamed` and `%sessions-changed` for **every** session, `%window-add/-renamed`/`%layout-change` for the attached one, and no `%output`. Enough for a "list changed" signal across all sessions from one client.
 hairpin | From the server, `https://sodre-cmux.mywire.org/agent/tunnel` reaches nginx (403 without a client cert); a loopback tunnel to the relay without the edge token is refused (401). The bootstrap vhost (:8444) is **not** exposed on the owner's nginx, so a new tenant is registered by hand: CSR → `POST /tenants/register` on the relay's loopback port with `X-Edge-Token`.
 tmux version | 3.7c on the server (the survey was written against the Mac's 3.6b man page; every format used above exists in both).
+empty history | `capture-pane -S -240 -E -1` on a pane with `history_size` 0 prints the screen's **first row once** rather than nothing (`-E -1` clamps to row 0); with N>0 history rows it prints exactly min(N, 240). Found in the phase 4 live test (every fresh or `clear`ed pane failed replay); `Replay` drops the echoed row when history is 0.
+live test | Phase 4 end-to-end on the emulator paired to the Linux agent, 2026-09-14: list, render (16/256/truecolour, italic, underline, wide chars), input, paste, resize + `window-size` release, split, rename, close pane/window, create window, control-mode refresh, agent restart. Not exercised: `classifyKind` (no agent was run in a pane) and a tmux **server** restart (the stale-epoch path).
 
 Wire deferrals decided while implementing phase 2: host identity and
 capabilities ride on `GET /sessions` (`host` object beside `workspaces`),
