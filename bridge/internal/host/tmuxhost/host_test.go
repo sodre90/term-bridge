@@ -261,6 +261,32 @@ func TestReplayBuildsAGridFromOneInvocation(t *testing.T) {
 	}
 }
 
+func TestReplayDropsTmuxsEchoedFirstRowForAnEmptyHistory(t *testing.T) {
+	f := newFixture(t)
+	f.write(t, "replay",
+		row(epoch, "@3", "10", "3", "0", "0", "0", "1", "0", "0", "0", "0", "0", "0", "0"),
+		"$ ls",
+		"$ ls",
+		"",
+		"$ ",
+	)
+	replay, err := f.h.Replay(context.Background(), "tmux-"+epoch+"-p9")
+	if err != nil {
+		t.Fatal(err)
+	}
+	grid := string(replay.Grid)
+	for _, want := range []string{
+		`"scrollback_rows":0`,
+		`"scrollback_spans":[]`,
+		`{"row":0,"column":0,"cell_width":4,"style_id":0,"text":"$ ls"}`,
+		`{"row":2,"column":0,"cell_width":1,"style_id":0,"text":"$"}`,
+	} {
+		if !strings.Contains(grid, want) {
+			t.Errorf("grid lacks %s:\n%s", want, grid)
+		}
+	}
+}
+
 func TestReplayRefusesAStaleEpochAndAShortCapture(t *testing.T) {
 	f := newFixture(t)
 	f.write(t, "replay", row("1", "@3", "10", "3", "0", "0", "0", "1", "0", "0", "0", "0", "0", "0", "0"), "a", "b", "c")

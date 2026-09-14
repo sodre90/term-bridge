@@ -113,6 +113,9 @@ func (h *Host) Replay(ctx context.Context, surfaceID string) (host.Replay, error
 	h.sizes.touched(state.windowID)
 	lines := strings.Split(strings.TrimSuffix(body, "\n"), "\n")
 	scrollback := min(state.history, scrollbackCap)
+	if scrollback == 0 {
+		lines = dropEmptyHistoryPlaceholder(lines, state.rows)
+	}
 	if len(lines) != scrollback+state.rows {
 		return host.Replay{}, fmt.Errorf("%w: captured %d rows, want %d scrollback + %d screen",
 			host.ErrMalformed, len(lines), scrollback, state.rows)
@@ -122,6 +125,17 @@ func (h *Host) Replay(ctx context.Context, surfaceID string) (host.Replay, error
 		return host.Replay{}, err
 	}
 	return host.Replay{Grid: grid, Columns: state.columns, Rows: state.rows}, nil
+}
+
+// dropEmptyHistoryPlaceholder removes the one line tmux prints for a
+// "-S -N -E -1" capture of a pane with no history at all: it clamps the
+// end line to the screen's first row and echoes that (verified on 3.7c;
+// N>0 history rows capture as exactly N lines).
+func dropEmptyHistoryPlaceholder(lines []string, screenRows int) []string {
+	if len(lines) == screenRows+1 {
+		return lines[1:]
+	}
+	return lines
 }
 
 // renderGrid is the subset of cmux.render-grid.v1 the app reads plus the
