@@ -10,7 +10,7 @@ Plan: `docs/superpowers/plans/2026-09-14-linux-tmux-host-plan.md`.
 
 Taken with the owner on 2026-09-14:
 
-1. **Linux target is the home server** (192.168.1.160, where `cmux-relay`
+1. **Linux target is the home server** (192.168.1.160, where `term-bridge-relay`
    already runs). It is **headless**: no display, so GUI terminals (kitty,
    WezTerm GUI) are out and the phone is the only UI for anything running
    there.
@@ -20,7 +20,7 @@ Taken with the owner on 2026-09-14:
 3. **cmux stays on the Mac.** Linux is a second backend behind a new `Host`
    interface in the bridge; the cmux path keeps its behaviour byte-for-byte.
    No "one backend everywhere".
-4. **The app gains multi-host.** The Linux box runs its own `cmux-bridge
+4. **The app gains multi-host.** The Linux box runs its own `term-bridge
    agent` as a separate relay tenant; the phone pairs with it independently
    and switches between hosts. Rejected: Mac agent proxying to Linux over
    SSH (Linux would vanish whenever the Mac sleeps); replacing the Mac
@@ -86,8 +86,8 @@ bridge owning a VT emulator. Control mode is the direct analog of
 ## Architecture
 
 ```
-phone ──relay/direct──► cmux-bridge agent (Mac)   ──► internal/host/cmuxhost ──► cmux rpc/events
-phone ──relay/direct──► cmux-bridge agent (Linux) ──► internal/host/tmuxhost ──► tmux / tmux -C
+phone ──relay/direct──► term-bridge agent (Mac)   ──► internal/host/cmuxhost ──► cmux rpc/events
+phone ──relay/direct──► term-bridge agent (Linux) ──► internal/host/tmuxhost ──► tmux / tmux -C
                                                   ◄── internal/host/agentfeed ◄── Claude Code hooks
 ```
 
@@ -204,7 +204,7 @@ Terminal-agnostic. Claude Code's hooks carry `session_id`, `cwd`,
 `$TMUX_PANE` from the pane it runs in — that is the reply target, no
 screen scraping.
 
-- **Transport**: a `command` hook running `cmux-bridge hook` (new
+- **Transport**: a `command` hook running `term-bridge hook` (new
   subcommand) that forwards stdin JSON over a unix socket in the agent's
   runtime dir (0600, owner-only). Chosen over Claude Code's `http` hook type
   so the Linux agent keeps the Mac agent's property of **no listening port
@@ -262,7 +262,7 @@ screen scraping.
   degrades to an attention stripe + open-the-terminal on Linux (a
   `Capabilities.FeedKinds` list tells the app).
 - **`exitPlan`**: not wired on the Mac either; out of scope.
-- **Installation**: `cmux-bridge hook install` writes the hook entries into
+- **Installation**: `term-bridge hook install` writes the hook entries into
   `~/.claude/settings.json` (idempotent, prints the diff first). Manual
   alternative documented.
 - Qwen CLI / other harnesses: attention stripes only in v1. Qwen Code
@@ -334,7 +334,7 @@ on `CreateWorkspaceRequest` when `Capabilities.Sessions` is set, and a
 Rootless podman is the house convention, but the agent must reach the
 user's tmux server socket and `~/.claude`, and spawn `tmux`/`claude` as the
 user — a container adds nothing but socket plumbing. Ship a **plain systemd
-user unit** (`bridge/deploy/cmux-bridge-agent.service`, `loginctl
+user unit** (`bridge/deploy/term-bridge-agent.service`, `loginctl
 enable-linger`), the Linux counterpart of the Mac's launchd plist. The
 agent, the tmux server and Claude Code must run as the **same Unix user**
 (tmux socket, `~/.claude/settings.json`, hook socket); `agent.toml` gains
@@ -441,7 +441,7 @@ DTO copy and the `session` field on `CreateWorkspaceRequest` move to phase
 4. **Bridge: `tmuxhost`** — list/layout/replay/input/resize/mutations,
    control-mode events; screen-text attention classifier; fake-tmux tests +
    live test against the home server. Linux deploy unit + docs.
-5. **Bridge: `agentfeed`** — hook socket, `cmux-bridge hook` + `hook
+5. **Bridge: `agentfeed`** — hook socket, `term-bridge hook` + `hook
    install`, permission items via the chosen path → Inbox + YOLO,
    `Notification` → stripes/push. Live test with Claude Code on the server.
 

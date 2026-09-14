@@ -1,7 +1,7 @@
-# cmux-app — agent operating card
+# term-bridge — agent operating card
 
-Android (Kotlin/Compose) phone client + two Go binaries (`cmux-relay` home-server
-daemon, `cmux-bridge agent` on the Mac). Full context: `docs/improvement-guide.md`
+Android (Kotlin/Compose) phone client + two Go binaries (`term-bridge-relay` home-server
+daemon, `term-bridge agent` on the Mac). Full context: `docs/improvement-guide.md`
 (read it before any non-trivial change). Architecture/security model: `README.md`.
 
 ## Build & verify (run before every commit)

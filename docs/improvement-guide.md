@@ -17,7 +17,7 @@ single sitting), **M** (half-day-ish), **L** (multi-day / needs a design pass).
 ## 0. Orientation
 
 - **What this is:** an Android (Kotlin/Compose) phone client + two Go binaries
-  (`cmux-relay` home-server daemon, `cmux-bridge agent` on the Mac) that
+  (`term-bridge-relay` home-server daemon, `term-bridge agent` on the Mac) that
   together let a phone drive cmux agent sessions remotely. Read the root
   `README.md` first — the architecture diagram and security model there are
   accurate and current.
@@ -260,11 +260,11 @@ regression → nonce-reuse risk) or drop a freshly paired device.
   existing `internal/backoff` package and use it in all three loops.
 - **Drop dead `config.Config`:** `server.Server` stores `cfg` that nothing
   reads; remove field + import, simplify `New()`.
-- **Deploy path mismatch:** `deploy/cmux-relay.service` uses
-  `ProtectSystem=strict` + `StateDirectory=cmux-relay`, but `config.defaults()`
-  points the token store/CA at `~/.config/cmux-relay/…`, which is unwritable
+- **Deploy path mismatch:** `deploy/term-bridge-relay.service` uses
+  `ProtectSystem=strict` + `StateDirectory=term-bridge-relay`, but `config.defaults()`
+  points the token store/CA at `~/.config/term-bridge-relay/…`, which is unwritable
   under that hardening. Ship `relay.example.toml` pointing at
-  `/var/lib/cmux-relay/…` and note it in the README.
+  `/var/lib/term-bridge-relay/…` and note it in the README.
 - **Env overrides for secrets:** config is TOML-file-only; the containerized
   relay wants `relay_token`/`edge_token`/`listen` from env. Add
   `CMUX_RELAY_*` env overrides for secrets + listen addr only (not a full
@@ -291,7 +291,7 @@ makes multiple connections safe.
   session, redial, assert registry swap + continued service.
 - **FastPath fallback end-to-end:** the `committed==false` connect-failure →
   subprocess fallback has unit tests only.
-- **CLI commands:** `cmd/cmux-relay/commands.go` (devices/tenants
+- **CLI commands:** `cmd/term-bridge-relay/commands.go` (devices/tenants
   list/revoke) is security-relevant and has zero tests.
 - Consolidate the per-package `waitFor`/dial helpers into `internal/testutil`
   while you're there.
@@ -322,7 +322,7 @@ choke point), pairing issued/redeemed/expired, push sent/failed (`pushmon`
 
 ### 6.3 Agent status surface — **S/M**
 The Mac agent has no health surface: an operator can't ask "tunnel up? cmux
-reachable? last event when?". Add a `cmux-bridge status` subcommand (read a
+reachable? last event when?". Add a `term-bridge status` subcommand (read a
 small status file the agent maintains, or a local unix-socket query).
 Optionally deepen relay `/healthz` to ping its store.
 

@@ -1,6 +1,6 @@
 ---
 type: article
-description: "cmux-bridge component reference: the cmux-relay and cmux-bridge agent Go binaries — architecture, build, deployment, pairing, and API."
+description: "term-bridge component reference: the term-bridge-relay and term-bridge agent Go binaries — architecture, build, deployment, pairing, and API."
 status: canonical
 authored: 2026-07-21
 author: sodre90
@@ -12,7 +12,7 @@ tags:
 ---
 ## Summary
 
-`cmux-bridge` is two Go binaries that give a phone remote access to a Mac's cmux sessions: `cmux-relay` (a rendezvous daemon on a home server, behind nginx mTLS) and `cmux-bridge agent` (runs on the Mac, dials out to the relay so the Mac needs no inbound ports). Both speak to cmux only through the documented `cmux` CLI (`cmux rpc` / `cmux events`) — no cmux socket password is stored, no cmux source is copied.
+`term-bridge` is two Go binaries that give a phone remote access to a Mac's cmux sessions: `term-bridge-relay` (a rendezvous daemon on a home server, behind nginx mTLS) and `term-bridge agent` (runs on the Mac, dials out to the relay so the Mac needs no inbound ports). Both speak to cmux only through the documented `cmux` CLI (`cmux rpc` / `cmux events`) — no cmux socket password is stored, no cmux source is copied.
 
 ## Body
 
@@ -28,16 +28,16 @@ Requires Go 1.26+.
 
 ```bash
 cd bridge
-go build -o cmux-relay  ./cmd/cmux-relay     # for the home server
-go build -o cmux-bridge ./cmd/cmux-bridge    # for the Mac (agent mode)
+go build -o term-bridge-relay  ./cmd/term-bridge-relay     # for the home server
+go build -o term-bridge ./cmd/term-bridge    # for the Mac (agent mode)
 go test ./...        # all tests run with no network and no real cmux
 ```
 
 ### Relay (home server)
 
-1. Copy the binary to `/usr/local/bin/cmux-relay`.
-2. Copy `deploy/relay.example.toml` to `/etc/cmux-relay/config.toml` and set `relay_token` plus optionally the FCM fields. On first run the relay generates its own CA (`ca_cert`/`ca_key`) and signs every agent and device cert against it. Migrating an existing deployment with its own CA (RSA or ECDSA)? Point `ca_cert`/`ca_key` at those files and the relay reuses it.
-3. Install the systemd unit and nginx vhost (`deploy/cmux-relay.service`, `deploy/nginx-cmux-relay.conf`). If a new Mac agent will self-register, also install the no-mTLS bootstrap vhost (`deploy/nginx-cmux-relay-bootstrap.conf`, proxies only `POST /tenants/register` on a separate port).
+1. Copy the binary to `/usr/local/bin/term-bridge-relay`.
+2. Copy `deploy/relay.example.toml` to `/etc/term-bridge-relay/config.toml` and set `relay_token` plus optionally the FCM fields. On first run the relay generates its own CA (`ca_cert`/`ca_key`) and signs every agent and device cert against it. Migrating an existing deployment with its own CA (RSA or ECDSA)? Point `ca_cert`/`ca_key` at those files and the relay reuses it.
+3. Install the systemd unit and nginx vhost (`deploy/term-bridge-relay.service`, `deploy/nginx-term-bridge-relay.conf`). If a new Mac agent will self-register, also install the no-mTLS bootstrap vhost (`deploy/nginx-term-bridge-relay-bootstrap.conf`, proxies only `POST /tenants/register` on a separate port).
 
 The relay binds `127.0.0.1:8765`; nginx is the only public surface. nginx must set `X-Client-Cert-CN $ssl_client_s_dn` (never trust an inbound value).
 
@@ -47,8 +47,8 @@ Can also run in a container (podman): `docker-compose.yml` + `deploy/Containerfi
 
 The agent must run in the GUI login session to reach the per-user cmux socket.
 
-1. Copy `deploy/agent.example.toml` to `~/.config/cmux-bridge/agent.toml`; set `relay_url` (`wss://<your-domain>/agent/tunnel`), client-cert paths, server CA, and the same `relay_token` as the relay.
-2. Install the LaunchAgent (`deploy/com.sodre90.cmux-bridge.plist`, `launchctl bootstrap`/`kickstart`).
+1. Copy `deploy/agent.example.toml` to `~/.config/term-bridge/agent.toml`; set `relay_url` (`wss://<your-domain>/agent/tunnel`), client-cert paths, server CA, and the same `relay_token` as the relay.
+2. Install the LaunchAgent (`deploy/com.sodre90.term-bridge.plist`, `launchctl bootstrap`/`kickstart`).
 
 The agent reconnects automatically (exponential backoff, capped at 30s) if the relay or network drops.
 
@@ -67,7 +67,7 @@ Self-registration never touches `ca_cert` — that setting pins the CA that sign
 Pairing is self-service, no operator step, no hand-rolled `.p12` client certificate:
 
 ```bash
-cmux-bridge pair-device --config ~/.config/cmux-bridge/agent.toml
+term-bridge pair-device --config ~/.config/term-bridge/agent.toml
 ```
 
 This asks the relay for a fresh, single-use pairing code, then prints a QR code and the code itself. The QR payload carries a one-time pairing URL, the code, and the agent's public key. The app scans it, generates its own keypair, and calls the relay directly to redeem the code. `pair-device` polls in the background and, once the phone redeems the code, derives a shared secret with the device (X25519 + HKDF).
@@ -76,9 +76,9 @@ Because the device public key that redemption hands back came through the relay,
 
 No camera handy? The Android app also has a manual-entry form (server URL + the printed code), resolving the agent's public key via the public, unauthenticated `GET /devices/pair-info/{code}` — same handshake, same e2e result, same fingerprint-confirmation step.
 
-`pair-device` never displays a raw device token to the operator. Devices/tenants can be listed/revoked via `cmux-relay devices` / `cmux-relay tenants`. Revocation is checked live on every connect/request but does not forcibly close an already-connected agent's existing tunnel.
+`pair-device` never displays a raw device token to the operator. Devices/tenants can be listed/revoked via `term-bridge-relay devices` / `term-bridge-relay tenants`. Revocation is checked live on every connect/request but does not forcibly close an already-connected agent's existing tunnel.
 
-There is no manual-pairing fallback: a phone paired under the old `cmux-relay pair` flow loses relay access the moment self-service pairing ships and must be re-paired via `pair-device`.
+There is no manual-pairing fallback: a phone paired under the old `term-bridge-relay pair` flow loses relay access the moment self-service pairing ships and must be re-paired via `pair-device`.
 
 ### Direct (Tailscale) mode
 
@@ -88,7 +88,7 @@ Switching between relay and direct mode in the original v1 shipped as a manual r
 
 ### Edge: nginx mutual TLS
 
-See `deploy/nginx-cmux-relay.conf`. Point the home-server DNS name at nginx, accept an optional client certificate (`ssl_verify_client optional`), and `proxy_pass` to `http://127.0.0.1:8765`. The `map $http_upgrade $connection_upgrade` block (http context) is required for the agent tunnel and the terminal/event WebSockets.
+See `deploy/nginx-term-bridge-relay.conf`. Point the home-server DNS name at nginx, accept an optional client certificate (`ssl_verify_client optional`), and `proxy_pass` to `http://127.0.0.1:8765`. The `map $http_upgrade $connection_upgrade` block (http context) is required for the agent tunnel and the terminal/event WebSockets.
 
 ### Push (optional)
 
@@ -121,7 +121,7 @@ Terminal frames carry cmux's `render_grid` (`format: "cmux.render-grid.v1"`) ver
 
 The bridge calls only read methods, terminal input/replay, feed replies, workspace rename (cmux's own `workspace.rename` RPC), and YOLO mode's auto-replies to permission prompts. It never creates, closes, or restores workspaces/terminals. Tests use a fake `cmux` binary and never touch the real socket.
 
-YOLO mode is an opt-in, per-workspace auto-reply for permission prompts, persisted locally on the Mac agent (`~/.config/cmux-bridge/yolo.json`, keyed by workspace ID, never sent to cmux itself). `bypass` mirrors Claude Code's own `--dangerously-skip-permissions`. Correlating a pending item to a workspace is done by matching cwd, since cmux pending items key on the agent's own session ID, not the cmux workspace ID.
+YOLO mode is an opt-in, per-workspace auto-reply for permission prompts, persisted locally on the Mac agent (`~/.config/term-bridge/yolo.json`, keyed by workspace ID, never sent to cmux itself). `bypass` mirrors Claude Code's own `--dangerously-skip-permissions`. Correlating a pending item to a workspace is done by matching cwd, since cmux pending items key on the agent's own session ID, not the cmux workspace ID.
 
 ### Licensing
 

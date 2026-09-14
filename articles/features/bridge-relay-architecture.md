@@ -13,7 +13,7 @@ tags:
 ---
 ## Summary
 
-This feature area is the network and process architecture that lets an Android phone remotely drive `cmux` (a native macOS AI-coding-agent orchestrator) from anywhere on the internet. It consists of three architectural layers built in sequence: (1) a Mac-resident `cmux-bridge` daemon that wraps cmux's CLI/socket in a small authenticated HTTP/WebSocket API, (2) a `cmux-relay` rendezvous service on a home server that lets the Mac "dial out" through NAT so the phone can reach it through one public mTLS endpoint, and (3) a multi-tenant rework of that relay so a single relay deployment can serve many independent Mac agents/users with hard routing-layer isolation between them. See [overview](../overview.md) and [bridge](../components/bridge.md) for the current, shipped state of this architecture.
+This feature area is the network and process architecture that lets an Android phone remotely drive `cmux` (a native macOS AI-coding-agent orchestrator) from anywhere on the internet. It consists of three architectural layers built in sequence: (1) a Mac-resident `term-bridge` daemon that wraps cmux's CLI/socket in a small authenticated HTTP/WebSocket API, (2) a `term-bridge-relay` rendezvous service on a home server that lets the Mac "dial out" through NAT so the phone can reach it through one public mTLS endpoint, and (3) a multi-tenant rework of that relay so a single relay deployment can serve many independent Mac agents/users with hard routing-layer isolation between them. See [overview](../overview.md) and [bridge](../components/bridge.md) for the current, shipped state of this architecture.
 
 ## Body
 
@@ -35,7 +35,7 @@ The first-order need was: from anywhere, list cmux sessions, interact with a liv
 
 ### Implementation notes
 
-Everything lives in one Go module, `github.com/sodre90/cmux-bridge`, under `bridge/`, shipping two binaries from one tree: `cmd/cmux-bridge` (Mac agent) and `cmd/cmux-relay` (relay). Key packages: `internal/cmux` (the only seam that shells out to the real `cmux` CLI, tested against a fake `cmux` script, never the real binary), `internal/auth` (device/tenant store), `internal/server` (the stable HTTP/WS handler; gained a "trusted mode" `TrustedHandler(relayToken)` swapping device-bearer auth for `X-Relay-Token`), `internal/push` (FCM sender), `internal/tunnel` (WS↔`net.Conn` adapter + yamux dial/accept), `internal/relay` (`Registry`, reverse proxy, CN routing, push monitor), and `internal/ca` (added in the multi-tenant plan).
+Everything lives in one Go module, `github.com/sodre90/term-bridge`, under `bridge/`, shipping two binaries from one tree: `cmd/term-bridge` (Mac agent) and `cmd/term-bridge-relay` (relay). Key packages: `internal/cmux` (the only seam that shells out to the real `cmux` CLI, tested against a fake `cmux` script, never the real binary), `internal/auth` (device/tenant store), `internal/server` (the stable HTTP/WS handler; gained a "trusted mode" `TrustedHandler(relayToken)` swapping device-bearer auth for `X-Relay-Token`), `internal/push` (FCM sender), `internal/tunnel` (WS↔`net.Conn` adapter + yamux dial/accept), `internal/relay` (`Registry`, reverse proxy, CN routing, push monitor), and `internal/ca` (added in the multi-tenant plan).
 
 Stable JSON contract the app depends on: `Session {id, cwd, title, kind, needs_attention}`, `EventFrame {type, needs_attention, feed_id, workspace_id, title, kind, raw}`, `TerminalDown {type, grid, columns, rows}`, `TerminalUp {type, text, columns, rows}`, `FeedReply {kind, request_id, decision, text}`.
 
@@ -48,11 +48,11 @@ Testing discipline across all three plans: strict TDD, zero real network egress,
 
 Deploy artifacts: a launchd `.plist` for the original single-Mac bridge; a systemd unit + nginx mTLS vhost + example configs for the v2 relay; a second, separate no-mTLS nginx vhost exposing only `/tenants/register` for multi-tenant bootstrap, with a comment flagging rate limiting/abuse resistance there as a known, tracked gap.
 
-CLI surface evolution: `cmux-bridge {serve|pair|devices|version}` (v1) → `cmux-bridge {agent|serve|version}` + `cmux-relay {serve|pair|devices|version}` (v2) → `cmux-relay {serve|pair -tenant <id>|devices|tenants {list|revoke}|version}` (multi-tenant).
+CLI surface evolution: `term-bridge {serve|pair|devices|version}` (v1) → `term-bridge {agent|serve|version}` + `term-bridge-relay {serve|pair|devices|version}` (v2) → `term-bridge-relay {serve|pair -tenant <id>|devices|tenants {list|revoke}|version}` (multi-tenant).
 
 ### Status
 
-Shipped, per the docs' own markers: the original `cmux-bridge` plan and the v2 `cmux-relay` plan each end with an explicit `## Execution` section stating they were executed inline, task-by-task with TDD and a commit per task, plus a self-review marking every design-doc requirement ✓. The multi-tenant transport plan has no equivalent execution section, but its self-review notes describe concrete, dated, in-session events (a reviewer catching the FCM leak, a test failing on first run) that are strong evidence of real execution. This is corroborated outside these six documents: this repo's `CLAUDE.md` lists `internal/relay/multitenant_test.go` as a non-negotiable invariant, which only makes sense if that file exists in the shipped codebase, and [overview](../overview.md)/[bridge](../components/bridge.md) describe this architecture as the current, live state of the system.
+Shipped, per the docs' own markers: the original `term-bridge` plan and the v2 `term-bridge-relay` plan each end with an explicit `## Execution` section stating they were executed inline, task-by-task with TDD and a commit per task, plus a self-review marking every design-doc requirement ✓. The multi-tenant transport plan has no equivalent execution section, but its self-review notes describe concrete, dated, in-session events (a reviewer catching the FCM leak, a test failing on first run) that are strong evidence of real execution. This is corroborated outside these six documents: this repo's `CLAUDE.md` lists `internal/relay/multitenant_test.go` as a non-negotiable invariant, which only makes sense if that file exists in the shipped codebase, and [overview](../overview.md)/[bridge](../components/bridge.md) describe this architecture as the current, live state of the system.
 
 Design-only / not confirmed implemented in these docs: the Layer-2 blind-relay content-encryption design has no accompanying implementation plan among these six documents (see [pairing-e2e-encryption](./pairing-e2e-encryption.md) for what was actually implemented, which deviated from this design in several security-relevant ways). Three further sub-projects (self-service onboarding/abuse resistance, rate limiting/quotas, ops) are explicitly out of scope with no specs found among these files.
 
@@ -65,7 +65,7 @@ Design-only / not confirmed implemented in these docs: the Layer-2 blind-relay c
 
 - [docs/superpowers/plans/2026-06-29-cmux-android-bridge.md](../../docs/superpowers/plans/2026-06-29-cmux-android-bridge.md)
 - [docs/superpowers/specs/2026-06-29-cmux-android-bridge-design.md](../../docs/superpowers/specs/2026-06-29-cmux-android-bridge-design.md)
-- [docs/superpowers/plans/2026-06-29-cmux-relay.md](../../docs/superpowers/plans/2026-06-29-cmux-relay.md)
-- [docs/superpowers/specs/2026-06-29-cmux-relay-design.md](../../docs/superpowers/specs/2026-06-29-cmux-relay-design.md)
+- [docs/superpowers/plans/2026-06-29-term-bridge-relay.md](../../docs/superpowers/plans/2026-06-29-term-bridge-relay.md)
+- [docs/superpowers/specs/2026-06-29-term-bridge-relay-design.md](../../docs/superpowers/specs/2026-06-29-term-bridge-relay-design.md)
 - [docs/superpowers/plans/2026-07-01-multi-tenant-relay-transport.md](../../docs/superpowers/plans/2026-07-01-multi-tenant-relay-transport.md)
 - [docs/superpowers/specs/2026-07-01-multi-tenant-relay-design.md](../../docs/superpowers/specs/2026-07-01-multi-tenant-relay-design.md)

@@ -24,10 +24,10 @@ cmux-app is a self-hosted system that lets a phone remote-control [cmux](https:/
     nginx (mutual TLS edge, public DNS name)
           │  HTTP / WS — loopback only
           ▼
-    cmux-relay (home server)
+    term-bridge-relay (home server)
           │  persistent yamux-over-WSS tunnel
           ▲  (the Mac dials OUT — agent:<tenant-id> client cert)
-    cmux-bridge agent (Mac)
+    term-bridge agent (Mac)
           │  cmux rpc / cmux events
           ▼
           cmux.app (unchanged)
@@ -35,8 +35,8 @@ cmux-app is a self-hosted system that lets a phone remote-control [cmux](https:/
 
 When the Mac is offline the relay returns `503 {"error":"agent_offline"}`; when it reconnects (automatic, backoff-capped), everything resumes.
 
-1. **`cmux-relay`** runs on the home server behind nginx with `ssl_verify_client on`. It is its own certificate authority — it mints and signs every agent and device cert itself — and serves many independent tenants (Mac agents) at once: it owns device pairing/tokens, routes requests by client-cert CN, and optionally sends FCM push. It binds loopback only; nginx is the sole public surface.
-2. **`cmux-bridge agent`** runs in the Mac's GUI login session next to cmux. The first time it runs it self-registers with the relay to get its own signed cert and tenant ID; from then on it opens one outbound WSS tunnel to the relay and serves the bridge HTTP/WS API over it. No port-forwarding, no inbound exposure on the Mac.
+1. **`term-bridge-relay`** runs on the home server behind nginx with `ssl_verify_client on`. It is its own certificate authority — it mints and signs every agent and device cert itself — and serves many independent tenants (Mac agents) at once: it owns device pairing/tokens, routes requests by client-cert CN, and optionally sends FCM push. It binds loopback only; nginx is the sole public surface.
+2. **`term-bridge agent`** runs in the Mac's GUI login session next to cmux. The first time it runs it self-registers with the relay to get its own signed cert and tenant ID; from then on it opens one outbound WSS tunnel to the relay and serves the bridge HTTP/WS API over it. No port-forwarding, no inbound exposure on the Mac.
 3. **The Android app** connects to the relay's public DNS name, authenticating with a per-device bearer token minted at pairing, and renders cmux's `render_grid` cell grid live. Once paired, every request/response body and terminal frame is also end-to-end encrypted between the phone and the Mac agent (X25519 + HKDF, derived during pairing) — the relay operator can route traffic but not read it.
 
 ### Components
@@ -44,7 +44,7 @@ When the Mac is offline the relay returns `503 {"error":"agent_offline"}`; when 
 | Directory | What it is | Stack | Details |
 |---|---|---|---|
 | `android/` | The phone client — sessions list, live terminal, agent inbox, optional push | Kotlin · Jetpack Compose · `com.sodre90.cmuxremote` | [android-app](./components/android-app.md) |
-| `bridge/` | Two Go binaries: `cmux-relay` (home-server rendezvous, auth, push) and `cmux-bridge agent` (runs on the Mac, dials the relay) | Go 1.26 | [bridge](./components/bridge.md) |
+| `bridge/` | Two Go binaries: `term-bridge-relay` (home-server rendezvous, auth, push) and `term-bridge agent` (runs on the Mac, dials the relay) | Go 1.26 | [bridge](./components/bridge.md) |
 
 Both bridge binaries live in `bridge/cmd/`; deployment templates (systemd unit, launchd plist, nginx vhosts, container files, example configs) are in `bridge/deploy/`.
 
@@ -58,8 +58,8 @@ Both bridge binaries live in `bridge/cmd/`; deployment templates (systemd unit, 
 
 ```bash
 # Bridge (Go 1.26+): from bridge/
-go build -o cmux-relay  ./cmd/cmux-relay     # home server
-go build -o cmux-bridge ./cmd/cmux-bridge    # Mac (agent mode)
+go build -o term-bridge-relay  ./cmd/term-bridge-relay     # home server
+go build -o term-bridge ./cmd/term-bridge    # Mac (agent mode)
 go test ./...                                # no network, no real cmux
 
 # Android app: from android/
@@ -95,9 +95,9 @@ The bridge performs **only** read methods, terminal input/replay, feed replies (
 
 ```
 android/              Jetpack Compose client (com.sodre90.cmuxremote)
-bridge/               Go module: github.com/sodre90/cmux-bridge
-  cmd/cmux-relay/       home-server rendezvous daemon
-  cmd/cmux-bridge/      Mac agent (dials the relay)
+bridge/               Go module: github.com/sodre90/term-bridge
+  cmd/term-bridge-relay/       home-server rendezvous daemon
+  cmd/term-bridge/      Mac agent (dials the relay)
   internal/             server, cmux CLI client, relay, tunnel, auth, push, …
   deploy/               systemd, launchd, nginx, container, example configs
 docs/                 design specs and implementation plans

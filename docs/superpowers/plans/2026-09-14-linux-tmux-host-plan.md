@@ -79,7 +79,7 @@ the agent:
   for phase 4's tests. Handlers become thin: validate → `s.host.X` → encode.
   The delta handshake, style table, `Unchanged` computation, e2e, YOLO
   auto-reply and push stay in `server` — they are bridge protocol, not host.
-- `cmd/cmux-bridge/agent.go`: builds `cmuxhost.New(cmuxClient)`; `OnReached`
+- `cmd/term-bridge/agent.go`: builds `cmuxhost.New(cmuxClient)`; `OnReached`
   wiring unchanged.
 - Tests: `go test ./...` green with no test file edited except imports
   and package moves; one new `host` conformance test skeleton
@@ -202,7 +202,7 @@ first draft below are noted inline.
     (like `WriteFakeCmux`) and the recorded control-mode transcript.
 - `config/agent.go`: `host`, `tmux_bin`, `tmux_socket`; `agent.go` picks
   the host by `host`.
-- `deploy/cmux-bridge-agent.service` (systemd user unit, journald
+- `deploy/term-bridge-agent.service` (systemd user unit, journald
   logging, `WantedBy=default.target`), `deploy/agent.linux.example.toml`,
   `bridge/README.md` Linux section.
 - Live on 192.168.1.160 (scratch session only): sessions list, terminal
@@ -219,10 +219,10 @@ texts/keystrokes and `Notification permission_prompt` timing. If the
 prompt has no stable on-screen option text to key on, stop and bring the
 evidence to the owner before improvising.
 
-- `cmd/cmux-bridge/hook.go`: `cmux-bridge hook` reads stdin JSON, requires
-  `TMUX_PANE`, connects to `$XDG_RUNTIME_DIR/cmux-bridge/hooks.sock`
+- `cmd/term-bridge/hook.go`: `term-bridge hook` reads stdin JSON, requires
+  `TMUX_PANE`, connects to `$XDG_RUNTIME_DIR/term-bridge/hooks.sock`
   (0600), forwards, writes the bridge's response to stdout; **any failure →
-  exit 0, empty output** (no decision). `cmux-bridge hook install [--dry-run]`
+  exit 0, empty output** (no decision). `term-bridge hook install [--dry-run]`
   edits `~/.claude/settings.json` idempotently after printing the diff.
 - `internal/host/agentfeed/`: unix-socket listener owned by the agent
   process (mode 0600, parent dir 0700). `PermissionRequest` → respond `{}`

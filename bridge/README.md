@@ -1,11 +1,11 @@
-# cmux-bridge
+# term-bridge
 
 Remote access to your Mac's [cmux](https://github.com/manaflow-ai/cmux) sessions
 from anywhere, via two small Go binaries:
 
-- **`cmux-relay`** — a rendezvous daemon on your home server, behind nginx mTLS
+- **`term-bridge-relay`** — a rendezvous daemon on your home server, behind nginx mTLS
   on a public DNS name. It owns device auth, pairing, and FCM push.
-- **`cmux-bridge agent`** — runs on your Mac next to cmux. It **dials out** to
+- **`term-bridge agent`** — runs on your Mac next to cmux. It **dials out** to
   the relay (so the Mac needs no inbound ports / port-forwarding) and serves the
   same HTTP/WebSocket API over the tunnel.
 
@@ -28,13 +28,13 @@ independent work that consumes cmux's IPC contract.
                    │  HTTP / WS — loopback only
                    ▼
     ┌────────────────────────────┐
-    │         cmux-relay         │
+    │     term-bridge-relay      │
     │       (home server)        │
     └────────────────────────────┘
                    │  yamux stream — routed by client-cert CN
                    ▲  (the Mac dials OUT — agent:<tenant-id> client cert)
     ┌────────────────────────────┐
-    │  cmux-bridge agent (Mac)   │
+    │  term-bridge agent (Mac)   │
     └────────────────────────────┘
                    │  cmux rpc / cmux events
                    ▼
@@ -62,15 +62,15 @@ Requires Go 1.26+.
 
 ```bash
 cd bridge
-go build -o cmux-relay  ./cmd/cmux-relay     # for the home server
-go build -o cmux-bridge ./cmd/cmux-bridge    # for the Mac (agent mode)
+go build -o term-bridge-relay  ./cmd/term-bridge-relay     # for the home server
+go build -o term-bridge ./cmd/term-bridge    # for the Mac (agent mode)
 go test ./...        # all tests run with no network and no real cmux
 ```
 
 ## Relay (home server)
 
-1. Copy the binary to `/usr/local/bin/cmux-relay`.
-2. Copy `deploy/relay.example.toml` to `/etc/cmux-relay/config.toml` and set
+1. Copy the binary to `/usr/local/bin/term-bridge-relay`.
+2. Copy `deploy/relay.example.toml` to `/etc/term-bridge-relay/config.toml` and set
    `relay_token` (a long random secret) and optionally the FCM fields. On
    first run the relay generates its own CA (`ca_cert`/`ca_key`) and signs
    every agent and device cert against it — there's no separate hand-rolled
@@ -78,17 +78,17 @@ go test ./...        # all tests run with no network and no real cmux
    CA (RSA or ECDSA)? Point `ca_cert`/`ca_key` at those files instead and the
    relay loads and reuses it rather than minting a new one — nginx's trust
    bundle and any already-issued device certs need no changes.
-   `ca_cert`/`ca_key` default to `~/.config/cmux-relay/ca.crt` / `ca.key` when
-   unset, but the example file sets them under `/var/lib/cmux-relay/` instead
-   — see the next step, `deploy/cmux-relay.service`'s `ProtectSystem=strict` +
-   `StateDirectory=cmux-relay` only allow writes under `/var/lib/cmux-relay`,
+   `ca_cert`/`ca_key` default to `~/.config/term-bridge-relay/ca.crt` / `ca.key` when
+   unset, but the example file sets them under `/var/lib/term-bridge-relay/` instead
+   — see the next step, `deploy/term-bridge-relay.service`'s `ProtectSystem=strict` +
+   `StateDirectory=term-bridge-relay` only allow writes under `/var/lib/term-bridge-relay`,
    so the `~/.config` default would fail to create the CA there on first run.
 3. Install the systemd unit and nginx vhost:
 
    ```bash
-   cp deploy/cmux-relay.service /etc/systemd/system/
-   systemctl enable --now cmux-relay
-   cp deploy/nginx-cmux-relay.conf /etc/nginx/sites-available/cmux
+   cp deploy/term-bridge-relay.service /etc/systemd/system/
+   systemctl enable --now term-bridge-relay
+   cp deploy/nginx-term-bridge-relay.conf /etc/nginx/sites-available/cmux
    # enable the site + add the `map $http_upgrade $connection_upgrade` block, reload nginx
    ```
 
@@ -98,7 +98,7 @@ go test ./...        # all tests run with no network and no real cmux
 
    If a new Mac agent will self-register (see [Agent client
    certificate](#agent-client-certificate) below), also install the no-mTLS
-   bootstrap vhost — `deploy/nginx-cmux-relay-bootstrap.conf` proxies only
+   bootstrap vhost — `deploy/nginx-term-bridge-relay-bootstrap.conf` proxies only
    `POST /tenants/register`, on a separate port (8444 in the example). The
    main vhost above keeps `ssl_verify_client optional`, unchanged, for the
    agent tunnel and all device traffic.
@@ -114,26 +114,26 @@ that sets only the CN is rejected every time.
 Two supported ways to run the same container image, both built from
 `deploy/Containerfile`. Pick by what your host's podman supports:
 
-- **Quadlet** (`deploy/cmux-relay.container`) — systemd manages the container
+- **Quadlet** (`deploy/term-bridge-relay.container`) — systemd manages the container
   directly, no long-running compose process. Needs **podman 4.4+**.
 - **Compose** (`docker-compose.yml`) — works on older podman and on Docker.
 
 Either way, first drop a `config.toml` on the host (from
 `deploy/relay.example.toml`, with a real `relay_token`,
 `token_store = "/data/store.db"`, and `ca_cert`/`ca_key` under `/data/` too —
-the example file's `/var/lib/cmux-relay/` paths are for the native systemd
+the example file's `/var/lib/term-bridge-relay/` paths are for the native systemd
 unit and aren't part of the container's persisted data volume). The image
 builds on the host; don't ship it across architectures.
 
 #### Quadlet
 
 ```bash
-podman build -t localhost/cmux-relay:latest -f deploy/Containerfile .
+podman build -t localhost/term-bridge-relay:latest -f deploy/Containerfile .
 mkdir -p ~/.config/containers/systemd
-cp deploy/cmux-relay.container ~/.config/containers/systemd/
+cp deploy/term-bridge-relay.container ~/.config/containers/systemd/
 # edit the config.toml path in that file to point at your copy
 systemctl --user daemon-reload
-systemctl --user start cmux-relay
+systemctl --user start term-bridge-relay
 loginctl enable-linger $USER    # survive logout, start at boot
 ```
 
@@ -158,11 +158,11 @@ curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8765/healthz   # 200
 
 The port is published on loopback only; the device store persists in a named
 volume. Note the two paths use **different volume names** — compose creates
-`cmux-relay_relay-data`, the quadlet template uses `cmux-relay-data` — so when
+`term-bridge-relay_relay-data`, the quadlet template uses `term-bridge-relay-data` — so when
 migrating from compose to quadlet, point the quadlet's `Volume=` at the
 existing compose volume or the relay starts up with no paired devices.
 
-Pair devices by running `cmux-bridge pair-device` on the Mac agent (see [Pair
+Pair devices by running `term-bridge pair-device` on the Mac agent (see [Pair
 a device](#pair-a-device) below) — the relay side needs no manual step.
 
 ## Agent (Mac)
@@ -170,16 +170,16 @@ a device](#pair-a-device) below) — the relay side needs no manual step.
 The agent must run **in your GUI login session** to reach the per-user cmux
 socket. Configure and install:
 
-1. Copy `deploy/agent.example.toml` to `~/.config/cmux-bridge/agent.toml`; set
+1. Copy `deploy/agent.example.toml` to `~/.config/term-bridge/agent.toml`; set
    `relay_url` (`wss://<your-domain>/agent/tunnel`), the client-cert paths, the
    server CA, and the same `relay_token` as the relay.
-2. Install the LaunchAgent (it runs `cmux-bridge agent`):
+2. Install the LaunchAgent (it runs `term-bridge agent`):
 
    ```bash
-   cp deploy/com.sodre90.cmux-bridge.plist ~/Library/LaunchAgents/   # edit REPLACE_ME paths
-   launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.sodre90.cmux-bridge.plist
-   launchctl kickstart -k gui/$(id -u)/com.sodre90.cmux-bridge
-   tail -f ~/Library/Logs/cmux-bridge.log
+   cp deploy/com.sodre90.term-bridge.plist ~/Library/LaunchAgents/   # edit REPLACE_ME paths
+   launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.sodre90.term-bridge.plist
+   launchctl kickstart -k gui/$(id -u)/com.sodre90.term-bridge
+   tail -f ~/Library/Logs/term-bridge.log
    ```
 
 The agent reconnects automatically (exponential backoff, capped at 30s) if the
@@ -199,15 +199,15 @@ is no listening port; the agent dials the relay exactly as the Mac does and
 is a tenant of its own, so the phone pairs with it separately and switches
 between hosts.
 
-1. Build for the box (`GOOS=linux GOARCH=amd64 go build ./cmd/cmux-bridge`
-   cross-compiles cleanly: no cgo) and copy it to `~/bin/cmux-bridge`.
-2. Copy `deploy/agent.linux.example.toml` to `~/.config/cmux-bridge/agent.toml`
+1. Build for the box (`GOOS=linux GOARCH=amd64 go build ./cmd/term-bridge`
+   cross-compiles cleanly: no cgo) and copy it to `~/bin/term-bridge`.
+2. Copy `deploy/agent.linux.example.toml` to `~/.config/term-bridge/agent.toml`
    and fill in the relay URL, token and bootstrap URL as for the Mac.
 3. Install the systemd user unit (see the comments in
-   `deploy/cmux-bridge-agent.service` for the exact commands); enable linger
+   `deploy/term-bridge-agent.service` for the exact commands); enable linger
    so it runs without a login session. Logs go to `journalctl --user -u
-   cmux-bridge-agent`.
-4. Pair a phone with `cmux-bridge pair-device` on the box, as below.
+   term-bridge-agent`.
+4. Pair a phone with `term-bridge pair-device` on the box, as below.
 
 What differs from cmux, by design: a pane is its own only surface, so there
 is no "add as tab" (the app hides it from the host's advertised
@@ -224,7 +224,7 @@ first time *it* starts:
 
 1. Point `bootstrap_url` in `agent.toml` at the relay's no-mTLS bootstrap
    vhost, e.g. `https://cmux.example.com:8444/tenants/register` — that's
-   `deploy/nginx-cmux-relay-bootstrap.conf`, which proxies only that one path.
+   `deploy/nginx-term-bridge-relay-bootstrap.conf`, which proxies only that one path.
    A brand-new agent has no client cert yet, so it can't reach the main mTLS
    vhost at all; this separate surface is how it gets one.
 2. On first run — only while `client_cert` doesn't exist on disk yet — the
@@ -235,7 +235,7 @@ first time *it* starts:
    was assigned, for example:
 
    ```
-   agent: registered as tenant 9f3a2c1e4b7d0a6f... (cert written to /Users/you/.config/cmux-bridge/agent.crt)
+   agent: registered as tenant 9f3a2c1e4b7d0a6f... (cert written to /Users/you/.config/term-bridge/agent.crt)
    ```
 
    Self-registration never touches `ca_cert` — that setting is unrelated: it
@@ -259,7 +259,7 @@ mints a second identity on the wrong host and the phone's traffic will never
 decrypt:
 
 ```bash
-cmux-bridge pair-device --config ~/.config/cmux-bridge/agent.toml
+term-bridge pair-device --config ~/.config/term-bridge/agent.toml
 ```
 
 This asks the relay for a fresh, single-use pairing code, then prints a QR
@@ -315,11 +315,11 @@ exactly as before:
 
 ```bash
 # --config must match the running relay's; without it these default to
-# ~/.config/cmux-relay/config.toml and silently operate on an empty store.
-cmux-relay devices --config /etc/cmux-relay/config.toml            # list devices (tokens redacted)
-cmux-relay devices revoke <token> --config /etc/cmux-relay/config.toml
-cmux-relay tenants list --config /etc/cmux-relay/config.toml       # created/revoked per tenant
-cmux-relay tenants revoke <id> --config /etc/cmux-relay/config.toml
+# ~/.config/term-bridge-relay/config.toml and silently operate on an empty store.
+term-bridge-relay devices --config /etc/term-bridge-relay/config.toml            # list devices (tokens redacted)
+term-bridge-relay devices revoke <token> --config /etc/term-bridge-relay/config.toml
+term-bridge-relay tenants list --config /etc/term-bridge-relay/config.toml       # created/revoked per tenant
+term-bridge-relay tenants revoke <id> --config /etc/term-bridge-relay/config.toml
                                    # devices stop authenticating immediately;
                                    # the agent is refused on its next reconnect
 ```
@@ -332,7 +332,7 @@ connection ends on its own (a network blip, the agent process restarting, or
 the relay itself restarting).
 
 There is no manual-pairing fallback: `auth.Issue` always requires a device
-public key, and the old `cmux-relay pair` subcommand is gone. Any phone still
+public key, and the old `term-bridge-relay pair` subcommand is gone. Any phone still
 paired under that flow lost relay access and must be re-paired via
 `pair-device`.
 
@@ -363,7 +363,7 @@ clears nothing, but only the slot that supplied one can replace it.
    $(tailscale status --json | jq -r .Self.DNSName)`.
 5. Add to `agent.toml`: `direct_listen = ":8443"` (any free port), restart
    the agent.
-6. Run `cmux-bridge pair-device --config ~/.config/cmux-bridge/agent.toml
+6. Run `term-bridge pair-device --config ~/.config/term-bridge/agent.toml
    --direct`, then complete pairing on the phone (Settings → Enter server
    URL and code manually) using the printed
    `https://<mac>.<tailnet>.ts.net:8443` URL and code.
@@ -376,7 +376,7 @@ both is the recommended setup rather than switching between them.
 
 ## Edge: nginx mutual TLS
 
-See `deploy/nginx-cmux-relay.conf`. Point your home-server DNS name at nginx,
+See `deploy/nginx-term-bridge-relay.conf`. Point your home-server DNS name at nginx,
 accept an optional client certificate (`ssl_verify_client optional` — agents
 present one, self-service-paired devices don't; the relay tells them apart by
 CN), and `proxy_pass` to `http://127.0.0.1:8765`. The `map $http_upgrade
@@ -479,7 +479,7 @@ the real socket.
 **YOLO mode** is an opt-in, per-workspace auto-reply for permission prompts,
 enabled via `POST /sessions/{id}/yolo-mode`. The mode (`always`/`all`/
 `bypass`) is persisted locally on the Mac agent (a SQLite store at
-`~/.config/cmux-bridge/yolo.db`, overridable with `yolo_store`, keyed by
+`~/.config/term-bridge/yolo.db`, overridable with `yolo_store`, keyed by
 workspace ID — never sent to cmux itself). When a workspace with a
 mode set gets a pending `permissionRequest`-kind feed item, the agent replies to it
 with that mode automatically, with no phone round-trip. `bypass` mirrors

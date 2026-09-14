@@ -12,7 +12,7 @@ tags:
 ---
 ## Summary
 
-The Android app (`com.sodre90.cmuxremote`) is a native Kotlin/Compose client for `cmux-bridge`. It connects to the bridge behind the mTLS nginx edge to list cmux sessions, drive a live terminal, and answer agent prompts, with optional FCM push. It depends only on the bridge's documented HTTP/WebSocket contract, never on cmux internals.
+The Android app (`com.sodre90.cmuxremote`) is a native Kotlin/Compose client for `term-bridge`. It connects to the bridge behind the mTLS nginx edge to list cmux sessions, drive a live terminal, and answer agent prompts, with optional FCM push. It depends only on the bridge's documented HTTP/WebSocket contract, never on cmux internals.
 
 ## Body
 
@@ -24,7 +24,7 @@ Every request carries an `Authorization: Bearer <device-token>` minted at pairin
 
 - Android Studio (Ladybug or newer) with the Android SDK (compileSdk 35).
 - JDK 17 (the Gradle toolchain targets 17).
-- A running `cmux-bridge` reachable through the nginx mTLS edge — see [bridge](./bridge.md). The phone must be able to reach that DNS name (over the internet or LAN).
+- A running `term-bridge` reachable through the nginx mTLS edge — see [bridge](./bridge.md). The phone must be able to reach that DNS name (over the internet or LAN).
 
 ### Build & run
 
@@ -43,7 +43,7 @@ On first launch — or any time the app has no bridge config yet — it opens th
 On the Mac, with the agent running:
 
 ```bash
-cmux-bridge pair-device --config ~/.config/cmux-bridge/agent.toml
+term-bridge pair-device --config ~/.config/term-bridge/agent.toml
 ```
 
 This prints a QR code and, alongside it, a short code for manual entry.

@@ -12,6 +12,22 @@ every section after it itemizes changes individually. Purely internal refactors
 
 ## [Unreleased]
 
+### Changed
+
+- **Renamed to Term Bridge.** With tmux hosts alongside cmux, the binaries,
+  module and app carry a host-neutral name: `cmux-bridge` → `term-bridge`,
+  `cmux-relay` → `term-bridge-relay`, `github.com/sodre90/cmux-bridge` →
+  `github.com/sodre90/term-bridge`, the app is "Term Bridge". Config
+  directories move with them (`~/.config/term-bridge`,
+  `~/.config/term-bridge-relay`); a machine still holding the old directory
+  and not the new one is refused at startup with the `mv` to run, so an
+  agent can never mint a fresh identity and orphan its paired phones. The
+  launchd job (`com.sodre90.term-bridge`), systemd units
+  (`term-bridge-agent`, `term-bridge-relay`) and the quadlet follow.
+  Unchanged on purpose: the Android applicationId
+  (`com.sodre90.cmuxremote` -- a new id would be a new app), the e2e HKDF
+  label and the relay CA's name (both bind existing pairings).
+
 ## [0.8.0] - 2026-09-13
 
 The phone can now change what is on the Mac, not just look at it: attach a
