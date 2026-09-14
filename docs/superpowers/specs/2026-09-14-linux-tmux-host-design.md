@@ -407,8 +407,11 @@ no darwin-only assumptions found by grep).
 
 ### Verified 2026-09-14 on 192.168.1.160 (Fedora 44, tmux 3.7c)
 
-Items 5–8 plus the control-mode question, all in a scratch session; the
-hook items (1–4, 9) and item 10 are still open and gate phase 5 only.
+Items 5–8 plus the control-mode question, all in a scratch session. The
+hook items (1–4, 9) were verified later the same day against Claude Code
+2.1.263 in the scratch session (`claude --permission-mode default`, a
+record-only hook on `PreToolUse`/`PermissionRequest`/`Notification`/`Stop`).
+Item 10 is moot: tmuxhost never sees `mobile.workspace.list`.
 
 Item | Result
 --- | ---
@@ -421,6 +424,11 @@ hairpin | From the server, `https://sodre-cmux.mywire.org/agent/tunnel` reaches 
 tmux version | 3.7c on the server (the survey was written against the Mac's 3.6b man page; every format used above exists in both).
 empty history | `capture-pane -S -240 -E -1` on a pane with `history_size` 0 prints the screen's **first row once** rather than nothing (`-E -1` clamps to row 0); with N>0 history rows it prints exactly min(N, 240). Found in the phase 4 live test (every fresh or `clear`ed pane failed replay); `Replay` drops the echoed row when history is 0.
 live test | Phase 4 end-to-end on the emulator paired to the Linux agent, 2026-09-14: list, render (16/256/truecolour, italic, underline, wide chars), input, paste, resize + `window-size` release, split, rename, close pane/window, create window, control-mode refresh, agent restart. Not exercised: `classifyKind` (no agent was run in a pane) and a tmux **server** restart (the stale-epoch path).
+1 | `PermissionRequest` input carries `session_id`, `cwd`, `permission_mode`, `tool_name`, `tool_input` and `permission_suggestions` (e.g. `addDirectories /tmp`, `setMode acceptEdits`) but **no `tool_use_id`**; the `PreToolUse` hook fires 16 ms earlier on the same pane with the same `tool_input` **and** `tool_use_id`, so the record is keyed from `PreToolUse` and confirmed by `PermissionRequest`. Exit 0 with no output → the TUI prompt appears at once, no visible delay.
+2 | Yes: `AskUserQuestion` fires `PreToolUse` and `PermissionRequest` with `tool_input.questions[] = {question, header, options[{label, description}], multiSelect}`. `question` items are fully structured on Linux.
+3 | `Notification permission_prompt` carries only `session_id`, `cwd`, `message: "Claude needs your permission"`, `notification_type` -- no tool, no options -- and fires **6 s after** the prompt is on screen. Nothing else fired within 60 s of idle at the input box; `Stop` fires the moment a turn ends with `last_assistant_message` (the "waiting for input" signal), `SessionEnd` on `/exit`.
+4 | `TMUX_PANE=%16` and `TMUX=<socket>,<pid>,0` are in the hook process environment, unsanitised.
+9 | The prompt is a numbered list; **a digit keypress selects at once, no Enter**. The list varies per tool: Bash → `1. Yes` / `2. Yes, and always allow access to /tmp from this project` / `3. Yes, and switch to auto mode …` / `4. No`; Write → `1. Yes` / `2. Yes, and switch to accept edits … (shift+tab)` / `3. No`; AskUserQuestion → `1. Red` / `2. Blue` / `3. Type something.` / `4. Chat about this`. So the keymap resolves a mode to a **text pattern**, finds its number on the live screen, and types that digit: once → the option that is exactly `Yes`; always/all/bypass → the first `Yes, and …` that is not "switch to auto mode"; deny → `No` (Esc as fallback); question → the option whose label matches the selection. Prompt gone from screen → refuse.
 phase 3 live | On the emulator, 2026-09-14: the in-place upgrade migrated the existing slot-keyed Linux pairing under its `HostId` (name learned as `home-server`, Inbox hidden); "Pair another host" paired the Mac (name learned once the Mac agent was rebuilt with the host block -- the older binary left the URL placeholder, as designed); host menu switches both ways; a Mac attention push arriving while home-server was selected fell through to the Mac session (`push did not decrypt on host … RELAY: DecryptFailedException`, then shown with its real title); tapping a home-server notification while the Mac was selected switched to home-server; Forget on the Mac's last slot removed the host and a re-pair brought it back. The Samsung followed the same day: its real relay+direct Mac pairing migrated in place under one host, then it paired `home-server` via QR (name learned, FCM token accepted by both hosts). Not exercised: DIRECT on a second host.
 
 Wire deferrals decided while implementing phase 2: host identity and
