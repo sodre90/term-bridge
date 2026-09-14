@@ -94,6 +94,7 @@ class InboxViewModelTest {
             bridgeNotConfiguredMessage = "Bridge not configured",
             loadInboxFailedMessage = "Failed to load inbox",
             replyFailedMessage = "Reply failed",
+            promptGoneMessage = "That prompt was already answered on home-server",
             terminalNotFoundMessage = "Couldn't find that item's terminal",
         )
     }
@@ -235,6 +236,28 @@ class InboxViewModelTest {
 
         waitUntil { vm.actionError.value != null }
         assertEquals(listOf("i1"), (vm.state.value as UiState.Ready).data.map { it.id })
+    }
+
+    @Test
+    fun replyToAPromptAnsweredAtTheKeyboardDropsTheItemAndSaysSoPlainly() {
+        server.enqueue(
+            MockResponse().setBody(
+                """{"items":[
+                    {"id":"i1","kind":"permissionRequest","request_id":"r1"},
+                    {"id":"i2","kind":"question","request_id":"r2"}
+                ]}""",
+            ),
+        )
+        // POST /feed/i1/reply
+        server.enqueue(MockResponse().setResponseCode(409).setBody("""{"error":"prompt_gone"}"""))
+        val vm = inboxViewModel(FakeInboxBridgeGateway(bridgeFor(server)))
+        waitUntil { vm.state.value is UiState.Ready }
+        val item = (vm.state.value as UiState.Ready).data.first { it.id == "i1" }
+
+        vm.replyPermission(item, approve = true)
+
+        waitUntil { (vm.state.value as? UiState.Ready)?.data?.map { it.id } == listOf("i2") }
+        assertEquals("That prompt was already answered on home-server", vm.actionError.value)
     }
 
     @Test

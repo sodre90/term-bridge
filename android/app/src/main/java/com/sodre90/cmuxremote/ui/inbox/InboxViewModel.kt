@@ -2,6 +2,7 @@ package com.sodre90.cmuxremote.ui.inbox
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sodre90.cmuxremote.data.BridgeException
 import com.sodre90.cmuxremote.data.BridgeGateway
 import com.sodre90.cmuxremote.data.ConnectionStatus
 import com.sodre90.cmuxremote.data.FallbackBridgeClient
@@ -46,6 +47,7 @@ class InboxViewModel(
     private val bridgeNotConfiguredMessage: String,
     private val loadInboxFailedMessage: String,
     private val replyFailedMessage: String,
+    private val promptGoneMessage: String,
     private val terminalNotFoundMessage: String,
 ) : ViewModel() {
 
@@ -190,12 +192,27 @@ class InboxViewModel(
         viewModelScope.launch {
             try {
                 c.replyFeed(item.id, FeedReply(kind, item.requestId, params))
-                _state.update { cur ->
-                    if (cur is UiState.Ready) UiState.Ready(cur.data.filterNot { it.id == item.id }) else cur
+                dropItem(item)
+            } catch (ex: BridgeException) {
+                // 409: someone answered the prompt at the keyboard first (a
+                // tmux host reports this; cmux never does). The card is stale
+                // the moment the bridge says so -- waiting for the next
+                // refetch would leave a prompt on screen that no longer exists.
+                if (ex.code == HTTP_CONFLICT) {
+                    dropItem(item)
+                    _actionError.value = promptGoneMessage
+                } else {
+                    _actionError.value = ex.message ?: replyFailedMessage
                 }
             } catch (ex: Exception) {
                 _actionError.value = ex.message ?: replyFailedMessage
             }
+        }
+    }
+
+    private fun dropItem(item: PendingFeedItem) {
+        _state.update { cur ->
+            if (cur is UiState.Ready) UiState.Ready(cur.data.filterNot { it.id == item.id }) else cur
         }
     }
 
@@ -220,5 +237,6 @@ class InboxViewModel(
 
     private companion object {
         const val EVENT_REFRESH_DEBOUNCE_MS = 800L
+        const val HTTP_CONFLICT = 409
     }
 }

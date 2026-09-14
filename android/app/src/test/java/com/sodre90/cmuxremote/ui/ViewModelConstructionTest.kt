@@ -127,6 +127,7 @@ class ViewModelConstructionTest {
                 bridgeNotConfiguredMessage = "unused",
                 loadInboxFailedMessage = "unused",
                 replyFailedMessage = "unused",
+                promptGoneMessage = "unused",
                 terminalNotFoundMessage = "unused",
             )
         }

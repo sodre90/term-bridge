@@ -386,11 +386,19 @@ private fun HostNavHost(
             val bridgeNotConfigured = stringResource(R.string.error_bridge_not_configured)
             val loadInboxFailed = stringResource(R.string.error_load_inbox_failed)
             val replyFailed = stringResource(R.string.error_reply_failed)
+            val promptGone = stringResource(R.string.error_prompt_gone, LocalHostName.current)
             val terminalNotFound = stringResource(R.string.error_terminal_not_found)
             val vm: InboxViewModel = viewModel(
                 factory = viewModelFactory {
                     initializer {
-                        InboxViewModel(container, bridgeNotConfigured, loadInboxFailed, replyFailed, terminalNotFound)
+                        InboxViewModel(
+                            container,
+                            bridgeNotConfigured,
+                            loadInboxFailed,
+                            replyFailed,
+                            promptGone,
+                            terminalNotFound,
+                        )
                     }
                 },
             )

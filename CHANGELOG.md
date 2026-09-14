@@ -58,7 +58,9 @@ running cmux, and switches between them.
   `PreToolUse` `tool_use_id`) as pending feed items in cmux's shape, raises
   the attention push, and answers a reply or a YOLO auto-approve by
   re-reading `capture-pane` and typing the digit of the matching option;
-  a prompt no longer on screen is refused with `409 prompt_gone`. Items
+  a prompt no longer on screen is refused with `409 prompt_gone`, which
+  the Inbox shows as "That prompt was already answered on <host>" and
+  drops the card at once. Items
   clear on `PostToolUse`/`Stop`/`UserPromptSubmit`/`SessionEnd` or when the
   prompt leaves the screen; `Stop` marks a workspace waiting for input.
   Single-select, single-question prompts only.
