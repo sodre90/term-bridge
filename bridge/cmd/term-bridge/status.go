@@ -34,11 +34,13 @@ func runStatus(args []string) int {
 		fmt.Fprintf(os.Stderr, "no status available at %s (%v) -- is `term-bridge agent` running?\n", cfg.StatusFile, err)
 		return 1
 	}
-	printStatus(os.Stdout, snap)
+	printStatus(os.Stdout, cfg.Host, snap)
 	return 0
 }
 
-func printStatus(w io.Writer, snap status.Snapshot) {
+// printStatus labels the backend line by the configured host kind (cmux or
+// tmux), which is what the snapshot's LastCmuxReachedAt actually tracks.
+func printStatus(w io.Writer, hostKind string, snap status.Snapshot) {
 	_, _ = fmt.Fprintf(w, "as of:           %s\n", formatAgo(snap.WrittenAt))
 	_, _ = fmt.Fprintf(w, "relay tunnel:    %s\n", upDown(snap.RelayTunnelUp))
 	if snap.DirectModeEnabled {
@@ -46,7 +48,7 @@ func printStatus(w io.Writer, snap status.Snapshot) {
 	} else {
 		_, _ = fmt.Fprintln(w, "direct listener: disabled")
 	}
-	_, _ = fmt.Fprintf(w, "cmux reached:    %s\n", formatTimeOrNever(snap.LastCmuxReachedAt))
+	_, _ = fmt.Fprintf(w, "%-16s %s\n", hostKind+" reached:", formatTimeOrNever(snap.LastCmuxReachedAt))
 	_, _ = fmt.Fprintf(w, "last event:      %s\n", formatTimeOrNever(snap.LastEventAt))
 	printSlotReachability(w, snap.SlotLastReachedAt)
 	printCounters(w, snap.Counters)

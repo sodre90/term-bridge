@@ -8,12 +8,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sodre90/term-bridge/internal/config"
 	"github.com/sodre90/term-bridge/internal/status"
 )
 
 func TestPrintStatusRelayUpDirectDisabled(t *testing.T) {
 	var buf bytes.Buffer
-	printStatus(&buf, status.Snapshot{
+	printStatus(&buf, config.HostCmux, status.Snapshot{
 		WrittenAt:         time.Now(),
 		RelayTunnelUp:     true,
 		DirectModeEnabled: false,
@@ -34,7 +35,7 @@ func TestPrintStatusRelayUpDirectDisabled(t *testing.T) {
 
 func TestPrintStatusDirectEnabledDown(t *testing.T) {
 	var buf bytes.Buffer
-	printStatus(&buf, status.Snapshot{
+	printStatus(&buf, config.HostCmux, status.Snapshot{
 		WrittenAt:         time.Now(),
 		RelayTunnelUp:     false,
 		DirectModeEnabled: true,
@@ -83,7 +84,7 @@ func TestPrintStatusDistinguishesBoundFromWorking(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var buf bytes.Buffer
 			tc.snap.WrittenAt = time.Now()
-			printStatus(&buf, tc.snap)
+			printStatus(&buf, config.HostCmux, tc.snap)
 			if !strings.Contains(buf.String(), tc.want) {
 				t.Fatalf("output missing %q: %s", tc.want, buf.String())
 			}
@@ -95,7 +96,7 @@ func TestPrintStatusDistinguishesBoundFromWorking(t *testing.T) {
 // from, so `term-bridge status` is the only place they surface at all.
 func TestPrintStatusListsCountersSortedIncludingZeroes(t *testing.T) {
 	var buf bytes.Buffer
-	printStatus(&buf, status.Snapshot{
+	printStatus(&buf, config.HostCmux, status.Snapshot{
 		WrittenAt: time.Now(),
 		Counters: map[string]int64{
 			"push_sent_total":                 12,
@@ -119,7 +120,7 @@ func TestPrintStatusListsCountersSortedIncludingZeroes(t *testing.T) {
 
 func TestPrintStatusSaysSoWhenThereAreNoCounters(t *testing.T) {
 	var buf bytes.Buffer
-	printStatus(&buf, status.Snapshot{WrittenAt: time.Now()})
+	printStatus(&buf, config.HostCmux, status.Snapshot{WrittenAt: time.Now()})
 
 	if !strings.Contains(buf.String(), "counters:        none") {
 		t.Fatalf("output missing the no-counters line: %s", buf.String())
@@ -162,7 +163,7 @@ func TestRunStatusMissingFileFails(t *testing.T) {
 // gauge that reset on every restart.
 func TestPrintStatusCallsOutAStandbyThatStoppedAnswering(t *testing.T) {
 	var buf bytes.Buffer
-	printStatus(&buf, status.Snapshot{
+	printStatus(&buf, config.HostCmux, status.Snapshot{
 		WrittenAt: time.Now(),
 		SlotLastReachedAt: map[string]time.Time{
 			"relay":  time.Now().Add(-time.Minute),
@@ -185,7 +186,7 @@ func TestPrintStatusCallsOutAStandbyThatStoppedAnswering(t *testing.T) {
 // alarming, so they must not print the same.
 func TestPrintStatusDistinguishesNeverReachedFromAbsent(t *testing.T) {
 	var buf bytes.Buffer
-	printStatus(&buf, status.Snapshot{
+	printStatus(&buf, config.HostCmux, status.Snapshot{
 		WrittenAt:         time.Now(),
 		SlotLastReachedAt: map[string]time.Time{"direct": {}},
 	})
@@ -219,7 +220,7 @@ func slotsBlock(out string) string {
 
 func TestPrintStatusSaysSoBeforeTheFirstRound(t *testing.T) {
 	var buf bytes.Buffer
-	printStatus(&buf, status.Snapshot{WrittenAt: time.Now()})
+	printStatus(&buf, config.HostCmux, status.Snapshot{WrittenAt: time.Now()})
 
 	if !strings.Contains(buf.String(), "no completed device round yet") {
 		t.Fatalf("output missing the pre-first-round line: %s", buf.String())
@@ -231,7 +232,7 @@ func TestPrintStatusSaysSoBeforeTheFirstRound(t *testing.T) {
 // the line that matters.
 func TestPrintStatusToleratesASingleMissedRound(t *testing.T) {
 	var buf bytes.Buffer
-	printStatus(&buf, status.Snapshot{
+	printStatus(&buf, config.HostCmux, status.Snapshot{
 		WrittenAt:         time.Now(),
 		SlotLastReachedAt: map[string]time.Time{"direct": time.Now().Add(-90 * time.Minute)},
 	})
@@ -250,4 +251,14 @@ func lineContaining(t *testing.T, out, want string) string {
 	}
 	t.Fatalf("no line containing %q in:\n%s", want, out)
 	return ""
+}
+
+func TestPrintStatusLabelsTheBackendByHostKind(t *testing.T) {
+	for _, kind := range []string{config.HostCmux, config.HostTmux} {
+		var buf bytes.Buffer
+		printStatus(&buf, kind, status.Snapshot{WrittenAt: time.Now(), LastCmuxReachedAt: time.Now()})
+		if !strings.Contains(buf.String(), kind+" reached:    ") {
+			t.Fatalf("%s host: output missing %q line, aligned like its neighbours: %s", kind, kind+" reached", buf.String())
+		}
+	}
 }
