@@ -422,6 +422,7 @@ func TestTheStickyListMatchesWhatTheAppCanCarry(t *testing.T) {
 		"terminal_config_theme", // likewise
 		"styles",                // UnchangedBlock.STYLES
 		"modes",                 // UnchangedBlock.MODES
+		rowSpansBlock,           // UnchangedBlock.ROW_SPANS, on the per-row path only
 	}
 	for _, sticky := range stickyGridFields {
 		if !slices.Contains(appCanCarry, sticky) {
@@ -429,32 +430,32 @@ func TestTheStickyListMatchesWhatTheAppCanCarry(t *testing.T) {
 		}
 	}
 	for _, known := range appCanCarry {
-		if !slices.Contains(stickyGridFields, known) {
+		if !slices.Contains(stickyGridFields, known) && known != rowSpansBlock {
 			t.Errorf("%q is listed here but no longer sticky -- update this list with the change", known)
 		}
 	}
 }
 
 func TestTheDeltaEncoderRepeatsABlockThatChanged(t *testing.T) {
-	d := newDeltaEncoder()
+	d := newDeltaEncoder(false)
 	first := json.RawMessage(`{"scrollback_spans":[{"row":0,"text":"a"}],"row_spans":[]}`)
-	if _, omitted := d.strip(first); len(omitted) != 0 {
+	if _, omitted, _ := d.strip(first); len(omitted) != 0 {
 		t.Fatalf("nothing can be omitted from the first frame, got %v", omitted)
 	}
 	// Same scrollback -> omitted.
-	if _, omitted := d.strip(first); len(omitted) != 1 || omitted[0] != "scrollback_spans" {
+	if _, omitted, _ := d.strip(first); len(omitted) != 1 || omitted[0] != "scrollback_spans" {
 		t.Fatalf("want scrollback omitted on a repeat, got %v", omitted)
 	}
 	// Changed scrollback -> sent again, and remembered at its new value.
 	grown := json.RawMessage(`{"scrollback_spans":[{"row":0,"text":"a"},{"row":1,"text":"b"}],"row_spans":[]}`)
-	got, omitted := d.strip(grown)
+	got, omitted, _ := d.strip(grown)
 	if len(omitted) != 0 {
 		t.Fatalf("a changed scrollback must be re-sent, got %v", omitted)
 	}
 	if !strings.Contains(string(got), `"b"`) {
 		t.Fatalf("the changed scrollback is missing from the frame: %s", got)
 	}
-	if _, omitted := d.strip(grown); len(omitted) != 1 {
+	if _, omitted, _ := d.strip(grown); len(omitted) != 1 {
 		t.Fatalf("the new value must now be the one remembered, got %v", omitted)
 	}
 }
@@ -464,12 +465,12 @@ func TestTheDeltaEncoderRepeatsABlockThatChanged(t *testing.T) {
 // -- strip omits a block only while its bytes are unchanged -- and together
 // they are 28% of a compressed frame.
 func TestStylesAndModesAreCarriedLikeAnyOtherStickyBlock(t *testing.T) {
-	d := newDeltaEncoder()
+	d := newDeltaEncoder(false)
 	grid := json.RawMessage(`{"styles":[{"id":1}],"modes":[{"code":1,"on":true}],"row_spans":[]}`)
-	if _, omitted := d.strip(grid); len(omitted) != 0 {
+	if _, omitted, _ := d.strip(grid); len(omitted) != 0 {
 		t.Fatalf("nothing can be omitted from the first frame, got %v", omitted)
 	}
-	got, omitted := d.strip(grid)
+	got, omitted, _ := d.strip(grid)
 	if len(omitted) != 2 {
 		t.Fatalf("want both styles and modes omitted on a repeat, got %v", omitted)
 	}
@@ -487,14 +488,14 @@ func TestStylesAndModesAreCarriedLikeAnyOtherStickyBlock(t *testing.T) {
 // in the frame again. A pane that leaves application-cursor mode must not have
 // the app spelling arrows against the old modes.
 func TestAChangedModeIsSentAgainRatherThanCarried(t *testing.T) {
-	d := newDeltaEncoder()
+	d := newDeltaEncoder(false)
 	on := json.RawMessage(`{"modes":[{"code":1,"on":true}],"row_spans":[]}`)
 	d.strip(on)
-	if _, omitted := d.strip(on); len(omitted) != 1 {
+	if _, omitted, _ := d.strip(on); len(omitted) != 1 {
 		t.Fatalf("an unchanged mode set should be omitted, got %v", omitted)
 	}
 	off := json.RawMessage(`{"modes":[{"code":1,"on":false}],"row_spans":[]}`)
-	got, omitted := d.strip(off)
+	got, omitted, _ := d.strip(off)
 	if len(omitted) != 0 {
 		t.Fatalf("a changed mode set must be re-sent, got %v", omitted)
 	}
@@ -504,9 +505,9 @@ func TestAChangedModeIsSentAgainRatherThanCarried(t *testing.T) {
 }
 
 func TestTheDeltaEncoderPassesAnUndecodableGridThrough(t *testing.T) {
-	d := newDeltaEncoder()
+	d := newDeltaEncoder(false)
 	bad := json.RawMessage(`not json`)
-	got, omitted := d.strip(bad)
+	got, omitted, _ := d.strip(bad)
 	if !bytes.Equal(got, bad) || omitted != nil {
 		t.Fatalf("an undecodable grid must pass through whole, got %s / %v", got, omitted)
 	}

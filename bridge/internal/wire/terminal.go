@@ -35,6 +35,12 @@ type TerminalDown struct {
 	// how an EMPTY block arrives, so without this a cleared scrollback and an
 	// unchanged one would be the same frame.
 	Unchanged []string `json:"unchanged,omitempty"`
+	// RowsChanged lists the visible rows whose spans Grid's row_spans carries;
+	// every other row is as this socket last sent it, and a listed row with no
+	// spans has emptied. Absent means row_spans is whole, so a client that did
+	// not ask for it (?rows=1) is never handed a partial block. Like Unchanged,
+	// this is the bridge's protocol, not cmux's data.
+	RowsChanged []int `json:"rows_changed,omitempty"`
 }
 
 // CloseSurfaceGone is the WebSocket close code WS /terminal/{id} uses to say

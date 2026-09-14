@@ -67,6 +67,22 @@ running cmux, and switches between them.
 
 ### Changed
 
+- **The visible screen travels row by row.** With stable style ids and the
+  shared compression window deployed, a busy Claude Code pane measured at
+  24.6 KB/s from the bridge (down from 133 KB/s) -- and all of it was
+  `row_spans`, ~50 KB of visible screen re-sent four times a second because
+  the agent UI's spinner touched one or two of 65 rows. An app that asks with
+  `?rows=1` (alongside `?delta=1`) now gets only the rows whose spans changed,
+  named in a new `rows_changed` frame field; a listed row with no spans has
+  emptied, and a screen with no changed row is named in `unchanged` like any
+  other block. A row is kept only while its bytes are identical to the last
+  ones sent, and the app resolves style ids against the frame's own table, so
+  no grid state makes a kept row wrong. Same pane, same 250 ms poll: 6.0 KB
+  → 0.36 KB per frame on the wire, 24.6 KB/s → 3.5 KB/s with the pane open
+  (pane closed: 0.33 KB/s). The remaining two steps of the 2026-09-12 plan
+  (`styles_appended`, a scrollback shift delta) were measured at ~1 KB/min
+  and ~1.5 KB/s and not built. No confirming header: `rows_changed` absent
+  is a whole screen, which is what every older pairing already reads.
 - **Renamed to Term Bridge.** With tmux hosts alongside cmux, the binaries,
   module and app carry a host-neutral name: `cmux-bridge` → `term-bridge`,
   `cmux-relay` → `term-bridge-relay`, `github.com/sodre90/cmux-bridge` →

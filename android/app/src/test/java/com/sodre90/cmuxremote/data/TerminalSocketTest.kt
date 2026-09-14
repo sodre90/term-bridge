@@ -235,6 +235,14 @@ class TerminalSocketTest {
             out.copyOfRange(0, n)
         }
 
+    /** Per-row screens are asked for on every socket; a bridge that does not
+     *  know the parameter sends whole screens, which decode as before. */
+    @Test
+    fun asksForTheScreenRowByRow() {
+        val (_, path) = frameThroughBridge(deflate = false, confirmHeader = false)
+        assertTrue("want ?rows=1 on the terminal URL, got $path", path.contains("rows=1"))
+    }
+
     /** The bridge clamps the value it is given; this side's job is only to send
      *  the one the user chose, on every socket it opens. */
     @Test

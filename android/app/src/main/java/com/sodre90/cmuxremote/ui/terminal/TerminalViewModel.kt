@@ -369,7 +369,7 @@ class TerminalViewModel(
                         // names nothing as unchanged, so it replaces the base
                         // wholesale -- which is what makes a reconnect a clean
                         // resync, since the bridge opens every socket with one.
-                        val merged = rg.mergedOnto(lastGrid, frame.unchanged)
+                        val merged = rg.mergedOnto(lastGrid, frame.unchanged, frame.rowsChanged)
                         lastGrid = merged
                         val content =
                             TerminalContent(grid = RenderGridDecoder.decode(merged), styles = merged.styles)

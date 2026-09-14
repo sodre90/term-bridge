@@ -112,6 +112,48 @@ class DeltaGridMergeTest {
         assertEquals(styled.modes, merged.modes)
     }
 
+    /** The per-row path: the frame carries only the rows it names, the rest
+     *  keep their previous spans. */
+    @Test
+    fun replacesOnlyTheRowsNamedChanged() {
+        val twoRows = previous.copy(
+            rows = 2,
+            rowSpans = listOf(RowSpan(row = 0, text = "prompt"), RowSpan(row = 1, text = "spin |")),
+        )
+        val delta = RenderGrid(columns = 8, rows = 2, rowSpans = listOf(RowSpan(row = 1, text = "spin /")))
+        val merged = delta.mergedOnto(twoRows, emptyList(), rowsChanged = listOf(1))
+        assertEquals(listOf("prompt", "spin /"), merged.rowSpans.sortedBy { it.row }.map { it.text })
+    }
+
+    /** A named row that arrives with no spans has emptied and must not keep
+     *  its old text. */
+    @Test
+    fun clearsANamedRowThatArrivedWithoutSpans() {
+        val twoRows = previous.copy(
+            rows = 2,
+            rowSpans = listOf(RowSpan(row = 0, text = "prompt"), RowSpan(row = 1, text = "gone")),
+        )
+        val delta = RenderGrid(columns = 8, rows = 2)
+        val merged = delta.mergedOnto(twoRows, emptyList(), rowsChanged = listOf(1))
+        assertEquals(listOf("prompt"), merged.rowSpans.map { it.text })
+    }
+
+    /** A screen named unchanged as a whole is carried like any other block. */
+    @Test
+    fun carriesTheWholeScreenWhenItIsNamedUnchanged() {
+        val delta = RenderGrid(columns = 8, rows = 1)
+        val merged = delta.mergedOnto(previous, listOf(UnchangedBlock.ROW_SPANS))
+        assertEquals(previous.rowSpans, merged.rowSpans)
+    }
+
+    /** Absent rows_changed on a frame that names nothing is a whole screen,
+     *  as it always was. */
+    @Test
+    fun aFrameWithoutRowsChangedReplacesTheScreen() {
+        val delta = RenderGrid(columns = 8, rows = 1, rowSpans = listOf(RowSpan(row = 0, text = "after")))
+        assertSame(delta, delta.mergedOnto(previous, emptyList()))
+    }
+
     /** A block the bridge did NOT name must keep this frame's own value, even
      *  when a sibling block was carried over. */
     @Test

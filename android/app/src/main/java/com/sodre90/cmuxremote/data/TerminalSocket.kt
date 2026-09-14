@@ -94,12 +94,12 @@ class TerminalSocket(
     private val cipher: Cipher,
     pollMs: Int = DEFAULT_TERMINAL_POLL_MS,
 ) {
-    // poll_ms needs no confirming response header the way deflate and delta do:
-    // frames decode identically whatever the interval, so there is nothing for
-    // this side to arm. A bridge too old to know the parameter ignores it and
-    // keeps its own rate.
+    // poll_ms and rows need no confirming response header the way deflate and
+    // delta do: frames decode identically whatever the interval, and a frame
+    // without rows_changed is a whole screen, so there is nothing for this side
+    // to arm. A bridge too old to know either parameter ignores it.
     private val url =
-        "${baseUrl.trimEnd('/')}/terminal/$surfaceId?deflate=1&delta=1&stream=1&poll_ms=$pollMs"
+        "${baseUrl.trimEnd('/')}/terminal/$surfaceId?deflate=1&delta=1&stream=1&rows=1&poll_ms=$pollMs"
 
     @Volatile
     private var socket: WebSocket? = null

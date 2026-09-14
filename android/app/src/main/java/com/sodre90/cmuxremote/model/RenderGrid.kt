@@ -44,14 +44,29 @@ data class RenderGrid(
  * explicitly: an empty scrollback arrives as an absent field too, so a grid
  * whose scrollback genuinely cleared must still be able to say so.
  *
+ * The visible screen is completed row by row: [rowsChanged] names the rows
+ * this frame's `row_spans` carries, and every other row keeps its previous
+ * spans -- a named row with no spans has emptied. A screen named unchanged as
+ * a whole is carried like any other block.
+ *
  * With no previous grid to draw on -- the first frame, or a frame after a
  * reconnect -- this returns the grid as it arrived. That is safe because the
  * bridge only omits blocks after a full replay it knows the client received,
  * and a reconnect always starts with a fresh full replay.
  */
-internal fun RenderGrid.mergedOnto(previous: RenderGrid?, unchanged: List<String>): RenderGrid {
-    if (previous == null || unchanged.isEmpty()) return this
+internal fun RenderGrid.mergedOnto(
+    previous: RenderGrid?,
+    unchanged: List<String>,
+    rowsChanged: List<Int> = emptyList(),
+): RenderGrid {
+    if (previous == null || (unchanged.isEmpty() && rowsChanged.isEmpty())) return this
     var merged = this
+    if (UnchangedBlock.ROW_SPANS in unchanged) {
+        merged = merged.copy(rowSpans = previous.rowSpans)
+    } else if (rowsChanged.isNotEmpty()) {
+        val replaced = rowsChanged.toHashSet()
+        merged = merged.copy(rowSpans = previous.rowSpans.filterNot { it.row in replaced } + rowSpans)
+    }
     if (UnchangedBlock.SCROLLBACK_SPANS in unchanged) {
         // Only the spans are carried over: the bridge sends scrollback_rows on
         // every frame, so this frame's own count is the current one.

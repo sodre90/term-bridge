@@ -68,6 +68,11 @@ func (s *Server) handleTerminal(w http.ResponseWriter, r *http.Request) {
 	// absent field as an EMPTY scrollback and lose its pan-up history.
 	deflate := s.sessions != nil && r.URL.Query().Get("deflate") == "1"
 	delta := r.URL.Query().Get("delta") == "1"
+	// Per-row visible screens need no confirming header: rows_changed absent
+	// means row_spans is whole, which is what every older pairing already
+	// reads. It extends delta rather than standing alone -- an unchanged screen
+	// is named in `unchanged` like any other sticky block.
+	perRow := delta && r.URL.Query().Get("rows") == "1"
 	// Streaming compression is a third negotiated capability rather than part of
 	// ?deflate=1, because it changes what a frame is: chunks of one stream can
 	// only be read in order and only by a decoder that saw every chunk before
@@ -107,7 +112,7 @@ func (s *Server) handleTerminal(w http.ResponseWriter, r *http.Request) {
 	// worth having in the log: a socket that is quietly falling back to whole
 	// uncompressed frames looks identical to a cheap one from the outside.
 	slog.Info("terminal: connected", "surface_id", id, "device", deviceLogID(deviceID),
-		"deflate", deflate, "delta", delta, "shared_window", stream != nil, "poll", pollInterval)
+		"deflate", deflate, "delta", delta, "rows", perRow, "shared_window", stream != nil, "poll", pollInterval)
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 	if deviceID != "" {
@@ -154,7 +159,7 @@ func (s *Server) handleTerminal(w http.ResponseWriter, r *http.Request) {
 	// The replay always goes out whole -- it is what a reconnecting app
 	// rebuilds from -- but it primes the encoder, so the first output frame can
 	// already leave the scrollback out.
-	deltas := newDeltaEncoder()
+	deltas := newDeltaEncoder(perRow)
 	deltas.strip(fr.Grid)
 	// cmux's top-level seq (and render_grid.state_seq) is always 0, so we can't
 	// gate on it — instead we forward whenever the render-grid content changes,
@@ -216,7 +221,7 @@ func (s *Server) handleTerminal(w http.ResponseWriter, r *http.Request) {
 		// app must be told about is any change to the grid, not just to the
 		// blocks that survive stripping.
 		if delta {
-			next.Grid, next.Unchanged = deltas.strip(next.Grid)
+			next.Grid, next.Unchanged, next.RowsChanged = deltas.strip(next.Grid)
 		}
 		if err := write(next); err != nil {
 			slog.Warn("terminal: output write failed", "surface_id", id, "dur_ms", time.Since(start).Milliseconds(), "err", err)
@@ -291,23 +296,40 @@ var stickyGridFields = []string{
 }
 
 // deltaEncoder remembers the sticky blocks one socket has already sent, so the
-// next frame can leave the unchanged ones out. Per-socket, never shared: a
-// reconnect builds a fresh one and its first frame is a full replay again.
-type deltaEncoder struct{ sent map[string][]byte }
+// next frame can leave the unchanged ones out, and -- for a socket that asked
+// -- the visible rows, so a frame carries only the rows that differ. Per-socket,
+// never shared: a reconnect builds a fresh one and its first frame is a full
+// replay again.
+type deltaEncoder struct {
+	sent map[string][]byte
+	rows *rowDelta
+}
 
-func newDeltaEncoder() *deltaEncoder { return &deltaEncoder{sent: map[string][]byte{}} }
+func newDeltaEncoder(perRow bool) *deltaEncoder {
+	d := &deltaEncoder{sent: map[string][]byte{}}
+	if perRow {
+		d.rows = newRowDelta()
+	}
+	return d
+}
+
+// rowSpansBlock is the visible screen, which is never sticky as a whole (it
+// differs on nearly every frame) but is carried by the app row by row once
+// rows_changed says which rows moved; it is named unchanged when none did.
+const rowSpansBlock = "row_spans"
 
 // strip returns grid without the sticky blocks this socket last sent
-// unchanged, plus the names of the blocks it left out. Priming it with the
-// replay frame is what makes the first output frame able to omit anything.
+// unchanged, plus the names of the blocks it left out and, on the per-row
+// path, the visible rows whose spans the grid still carries. Priming it with
+// the replay frame is what makes the first output frame able to omit anything.
 //
 // A grid that will not decode is returned whole with nothing omitted, the same
 // fail-safe direction as [gridFingerprint]: a redundant block costs bytes, a
 // wrongly omitted one costs correctness.
-func (d *deltaEncoder) strip(grid json.RawMessage) (json.RawMessage, []string) {
+func (d *deltaEncoder) strip(grid json.RawMessage) (json.RawMessage, []string, []int) {
 	var fields map[string]json.RawMessage
 	if err := json.Unmarshal(grid, &fields); err != nil {
-		return grid, nil
+		return grid, nil, nil
 	}
 	var omitted []string
 	for _, k := range stickyGridFields {
@@ -322,14 +344,27 @@ func (d *deltaEncoder) strip(grid json.RawMessage) (json.RawMessage, []string) {
 		}
 		d.sent[k] = bytes.Clone(v)
 	}
-	if len(omitted) == 0 {
-		return grid, nil
+	var rowsChanged []int
+	if spans, present := fields[rowSpansBlock]; present && d.rows != nil {
+		partial, changed, ok := d.rows.cut(spans)
+		switch {
+		case !ok:
+		case len(changed) == 0:
+			delete(fields, rowSpansBlock)
+			omitted = append(omitted, rowSpansBlock)
+		default:
+			fields[rowSpansBlock] = partial
+			rowsChanged = changed
+		}
+	}
+	if len(omitted) == 0 && rowsChanged == nil {
+		return grid, nil, nil
 	}
 	out, err := json.Marshal(fields)
 	if err != nil {
-		return grid, nil
+		return grid, nil, nil
 	}
-	return out, omitted
+	return out, omitted, rowsChanged
 }
 
 // gridFingerprint reduces a render grid to a value that compares equal when

@@ -223,16 +223,25 @@ data class TerminalDown(
      *  and only once the delta handshake succeeded. Mirrors `Unchanged` in
      *  bridge/internal/wire/terminal.go. */
     val unchanged: List<String> = emptyList(),
+    /** The visible rows whose spans [grid]'s `row_spans` carries; every other
+     *  row is kept from the previous frame and a listed row with no spans has
+     *  emptied (see [mergedOnto]). Empty means `row_spans` is whole. Only ever
+     *  set on output frames of a socket opened with `rows=1`. Mirrors
+     *  `RowsChanged` in bridge/internal/wire/terminal.go. */
+    @SerialName("rows_changed")
+    val rowsChanged: List<Int> = emptyList(),
 )
 
 /** Block names that can appear in [TerminalDown.unchanged] -- mirrors
- *  `stickyGridFields` in bridge/internal/server/terminal.go. The two theme
- *  blocks are also omitted there, but this model never parsed them, so only
- *  the scrollback needs carrying forward here. */
+ *  `stickyGridFields` (and `rowSpansBlock`, named only when no visible row
+ *  changed on a `rows=1` socket) in bridge/internal/server/terminal.go. The
+ *  two theme blocks are also omitted there, but this model never parsed them,
+ *  so only the scrollback needs carrying forward here. */
 object UnchangedBlock {
     const val SCROLLBACK_SPANS = "scrollback_spans"
     const val STYLES = "styles"
     const val MODES = "modes"
+    const val ROW_SPANS = "row_spans"
 }
 
 /**
