@@ -342,6 +342,58 @@ class SessionsViewModelTest {
         assertTrue(vm.state.value is UiState.Ready)
     }
 
+    /** With a terminal on top, the list's ViewModel is still alive and still
+     *  hears every event; it must not refetch a list nobody sees. Whatever
+     *  happened meanwhile is one refetch when the list comes back. */
+    @Test
+    fun eventsWhileTheListIsHiddenCollapseIntoOneRefetchWhenItIsShownAgain() {
+        val requestCount = AtomicInteger(0)
+        val socketRef = AtomicReference<WebSocket>()
+        val socketOpened = CountDownLatch(1)
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse = when (request.path) {
+                "/events" -> MockResponse().withWebSocketUpgrade(
+                    object : WebSocketListener() {
+                        override fun onOpen(webSocket: WebSocket, response: Response) {
+                            socketRef.set(webSocket)
+                            socketOpened.countDown()
+                        }
+                    },
+                )
+                "/sessions" -> {
+                    requestCount.incrementAndGet()
+                    MockResponse().setBody("""{"workspaces":[]}""")
+                }
+                else -> MockResponse().setResponseCode(404)
+            }
+        }
+
+        val gw = FakeSessionsBridgeGateway().apply {
+            bridge = bridgeFor(server)
+            events = EventsSocket(OkHttpClient(), server.url("/").toString(), RecordingSession(secret), cipher)
+        }
+        val vm = sessionsViewModel(gw, orderGateway)
+        assertTrue(socketOpened.await(5, TimeUnit.SECONDS))
+        waitUntil { requestCount.get() >= 1 } // init's own refresh()
+        val baseline = requestCount.get()
+
+        vm.listHidden()
+        val socket = socketRef.get()
+        repeat(3) { i -> socket.send(frameFor("""{"type":"feed","name":"feed.updated"}""", i.toLong())) }
+        Thread.sleep(1_500) // past the debounce: a hidden list must not have fetched
+        assertEquals(baseline, requestCount.get())
+
+        vm.listShown()
+        waitUntil { requestCount.get() == baseline + 1 }
+        Thread.sleep(500)
+        assertEquals(baseline + 1, requestCount.get())
+
+        vm.listHidden()
+        vm.listShown() // nothing happened while away: nothing to catch up on
+        Thread.sleep(300)
+        assertEquals(baseline + 1, requestCount.get())
+    }
+
     @Test
     fun eventsSocketStaysDownWhileBackgroundedAndResumesOnForeground() {
         val requestCount = AtomicInteger(0)

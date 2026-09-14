@@ -59,6 +59,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -123,6 +124,10 @@ fun SessionsScreen(
     val actionError by vm.actionError.collectAsState()
     var creatingWorkspace by rememberSaveable { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
+    DisposableEffect(vm) {
+        vm.listShown()
+        onDispose { vm.listHidden() }
+    }
 
     actionOutcome?.let { outcome ->
         val text = actionOutcomeText(outcome)

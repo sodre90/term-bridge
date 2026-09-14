@@ -93,6 +93,28 @@ class SessionsViewModel(
     // auto-refresh) -- separate from [_isRefreshing], which is UI-only.
     private var fetchInFlight = false
 
+    // This ViewModel outlives its screen on the back stack while a terminal
+    // is open, and the event stream keeps asking it to refetch a list nobody
+    // is looking at (measured: eleven /sessions in seventy seconds behind one
+    // busy pane, cmux-app-ocd). Events seen while away collapse into one
+    // refetch on return. Starts in view so a bare ViewModel refreshes.
+    private var listInView = true
+    private var refetchWhenShown = false
+
+    /** The sessions screen entered composition. */
+    fun listShown() {
+        listInView = true
+        if (refetchWhenShown) {
+            refetchWhenShown = false
+            autoRefresh()
+        }
+    }
+
+    /** The sessions screen left composition (a terminal or the Inbox is on top). */
+    fun listHidden() {
+        listInView = false
+    }
+
     // Coalesces bursts of cmux feed events (e.g. many PreToolUse frames during
     // one agent turn) into a single refetch instead of hammering `cmux rpc`.
     private val refreshRequests =
@@ -266,6 +288,10 @@ class SessionsViewModel(
      *  so cmux agent activity the user didn't ask about never pops the
      *  pull-to-refresh spinner. */
     private fun autoRefresh() {
+        if (!listInView) {
+            refetchWhenShown = true
+            return
+        }
         val client = bridge.activeBridge() ?: return
         if (fetchInFlight) return
         viewModelScope.launch {
