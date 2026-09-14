@@ -258,6 +258,13 @@ evidence to the owner before improvising.
 
 `docs: Linux host — README, CLAUDE.md, improvement guide`
 
+
+Landed early (2026-09-14, at the owner's request, together with the
+term-bridge rename): README, CLAUDE.md, bridge/android READMEs, the
+improvement guide and the knowledge base describe the Linux host and
+multi-host as built. Still owed after phase 5: the hooks-socket security
+claims, the allow/deny authority statement, and the epic close-out.
+
 - `README.md`: architecture paragraph gains the Linux agent; "What the app
   does" gains host switching and the tmux limitations list; security
   section: Linux agent has no listening port, hooks socket ACL, the

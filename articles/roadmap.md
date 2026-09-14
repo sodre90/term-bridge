@@ -65,7 +65,7 @@ The transport/crypto layer (`BridgeClient`, `FallbackBridgeClient`, `TerminalSoc
 
 - **Structured logging with `slog` (M).** Zero `log/slog` today — 11 files of plain `log.Printf` with inconsistent fields. Adopt one shared handler with consistent keys (`tenant_id`, hashed `device`, `route`, `status`, `dur_ms`); never log body content (invariant above).
 - **Metrics (M).** No metrics at all — there's no way to answer "which tenant is hot or erroring." Cheapest fit is `expvar` on the existing loopback listener: active-tunnels gauge, per-tenant proxied requests + `agent_offline` count, pairing issued/redeemed/expired, push sent/failed, e2e decrypt failures.
-- **Agent status surface (S/M).** The Mac agent has no health surface today — add a `term-bridge status` subcommand and optionally deepen the relay's `/healthz` to ping its store.
+- **Agent status surface (S/M).** The host agent has no health surface today — add a `term-bridge status` subcommand and optionally deepen the relay's `/healthz` to ping its store.
 - **Rate-limit `/devices/pair` (S).** The tenant-registration bootstrap is already per-IP throttled; the pairing-redeem endpoint still relies solely on single-use codes + a 10-minute TTL. Cheap defense-in-depth on an internet-reachable endpoint — reuse the existing rate limiter.
 
 ### Phase 4 — UX (product-level, Android-only unless noted; ordered by pain × ease)

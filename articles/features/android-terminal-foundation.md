@@ -12,6 +12,8 @@ tags:
 ---
 ## Summary
 
+> **Since 2026-09-14** the agent also fronts tmux on a Linux host and the app pairs with several hosts; where this write-up says "the Mac" or "the Mac agent", read "the host" -- see [overview](../overview.md) for the current shape.
+
 The foundation of the Android app's phone client: the original app-wide plan (navigation, screens, mTLS auth, the render-grid based terminal renderer) plus two focused follow-on efforts on the terminal view — a readability/UX hardening pass (fonts, colors, zoom, scrollback, keys, reconnect) and a bug-fix effort ("surface id") correcting which id the app must use to open a live terminal WebSocket. See [overview](../overview.md) and [android-app](../components/android-app.md) for the shipped, current state of this app.
 
 ## Body

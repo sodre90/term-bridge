@@ -13,6 +13,8 @@ tags:
 ---
 ## Summary
 
+> **Since 2026-09-14** the agent also fronts tmux on a Linux host and the app pairs with several hosts; where this write-up says "the Mac" or "the Mac agent", read "the host" -- see [overview](../overview.md) for the current shape.
+
 This feature area is the network and process architecture that lets an Android phone remotely drive `cmux` (a native macOS AI-coding-agent orchestrator) from anywhere on the internet. It consists of three architectural layers built in sequence: (1) a Mac-resident `term-bridge` daemon that wraps cmux's CLI/socket in a small authenticated HTTP/WebSocket API, (2) a `term-bridge-relay` rendezvous service on a home server that lets the Mac "dial out" through NAT so the phone can reach it through one public mTLS endpoint, and (3) a multi-tenant rework of that relay so a single relay deployment can serve many independent Mac agents/users with hard routing-layer isolation between them. See [overview](../overview.md) and [bridge](../components/bridge.md) for the current, shipped state of this architecture.
 
 ## Body

@@ -1,17 +1,24 @@
 # term-bridge
 
-Remote access to your Mac's [cmux](https://github.com/manaflow-ai/cmux) sessions
-from anywhere, via two small Go binaries:
+Remote access to the terminal sessions on your machines — a Mac running
+[cmux](https://github.com/manaflow-ai/cmux), a Linux box running
+[tmux](https://github.com/tmux/tmux) — from anywhere, via two small Go
+binaries:
 
 - **`term-bridge-relay`** — a rendezvous daemon on your home server, behind nginx mTLS
   on a public DNS name. It owns device auth, pairing, and FCM push.
-- **`term-bridge agent`** — runs on your Mac next to cmux. It **dials out** to
-  the relay (so the Mac needs no inbound ports / port-forwarding) and serves the
-  same HTTP/WebSocket API over the tunnel.
+- **`term-bridge agent`** — runs on each host next to cmux or tmux. It **dials
+  out** to the relay (so the host needs no inbound ports / port-forwarding)
+  and serves the same HTTP/WebSocket API over the tunnel, whichever backend
+  it fronts.
 
-Both speak to cmux **only through the documented `cmux` CLI** (`cmux rpc` and
-`cmux events`). They store no cmux socket password and copy no cmux source — an
-independent work that consumes cmux's IPC contract.
+The agent speaks to its backend **only through the documented CLI**: `cmux rpc`
+and `cmux events` on the Mac, the `tmux` command plus a control-mode client
+(`tmux -C`) on Linux. It stores no socket password and copies no cmux or tmux
+source — an independent work that consumes each program's CLI contract.
+Inside the agent the two backends sit behind one `Host` interface
+(`internal/host`; `cmuxhost`, `tmuxhost`), so the server, relay, auth, e2e
+and push code is shared byte-for-byte.
 
 ## Architecture (v2 relay topology)
 
@@ -31,20 +38,24 @@ independent work that consumes cmux's IPC contract.
     │     term-bridge-relay      │
     │       (home server)        │
     └────────────────────────────┘
-                   │  yamux stream — routed by client-cert CN
-                   ▲  (the Mac dials OUT — agent:<tenant-id> client cert)
-    ┌────────────────────────────┐
-    │  term-bridge agent (Mac)   │
-    └────────────────────────────┘
-                   │  cmux rpc / cmux events
-                   ▼
-                   cmux.app  (unchanged)
+          ▲                   ▲     yamux streams — routed by client-cert CN
+          │                   │     (each agent dials OUT — agent:<tenant-id> client cert)
+ ┌──────────────────┐  ┌──────────────────┐
+ │ term-bridge agent│  │ term-bridge agent│
+ │      (Mac)       │  │  (Linux, tmux)   │
+ └──────────────────┘  └──────────────────┘
+          │ cmux rpc / events      │ tmux CLI / tmux -C
+          ▼                        ▼
+      cmux.app                 tmux server
+      (unchanged)              (unchanged)
 ```
 
 The relay multiplexes every app request as a fresh [yamux](https://github.com/hashicorp/yamux)
-stream over the single agent tunnel (a WebSocket, so it traverses nginx on 443).
-The agent serves its existing handler verbatim. When the Mac is not connected,
-the relay returns `503 {"error":"agent_offline"}`.
+stream over that tenant's single agent tunnel (a WebSocket, so it traverses
+nginx on 443). The agent serves its handler verbatim. When a host is not
+connected, the relay returns `503 {"error":"agent_offline"}` for that tenant
+only. Every host is its own tenant — the relay does not know or care that two
+of them belong to the same person.
 
 Security is layered: **mutual TLS at the nginx edge for the agent only**
 (`ssl_verify_client optional` — the agent presents a client cert signed by
@@ -54,7 +65,7 @@ encryption** between phone and agent (X25519 ECDH + HKDF derived at pairing,
 AEAD over every HTTP body and terminal WS frame, replay-protected — the relay
 can route it but not read it) + an `X-Relay-Token` shared secret the relay
 injects so the agent only honors relay-originated requests. The relay binds
-loopback only; the agent has no listening port at all.
+loopback only; no agent has a listening port at all.
 
 ## Build
 
@@ -62,9 +73,10 @@ Requires Go 1.26+.
 
 ```bash
 cd bridge
-go build -o term-bridge-relay  ./cmd/term-bridge-relay     # for the home server
-go build -o term-bridge ./cmd/term-bridge    # for the Mac (agent mode)
-go test ./...        # all tests run with no network and no real cmux
+go build -o term-bridge-relay ./cmd/term-bridge-relay   # for the home server
+go build -o term-bridge       ./cmd/term-bridge         # for a host (agent mode)
+GOOS=linux GOARCH=amd64 go build -o term-bridge ./cmd/term-bridge   # cross-build for a Linux box (no cgo)
+go test ./...        # all tests run with no network and no real cmux or tmux
 ```
 
 ## Relay (home server)
@@ -93,10 +105,10 @@ go test ./...        # all tests run with no network and no real cmux
    ```
 
    The vhost also needs a `map $http_upgrade $connection_upgrade` block and a
-   `limit_req_zone ... zone=cmux_device_pair` block in the `http` context —
+   `limit_req_zone ... zone=term_bridge_device_pair` block in the `http` context —
    both are documented in the conf's header comment.
 
-   If a new Mac agent will self-register (see [Agent client
+   If a new agent will self-register (see [Agent client
    certificate](#agent-client-certificate) below), also install the no-mTLS
    bootstrap vhost — `deploy/nginx-term-bridge-relay-bootstrap.conf` proxies only
    `POST /tenants/register`, on a separate port (8444 in the example). The
@@ -162,7 +174,7 @@ volume. Note the two paths use **different volume names** — compose creates
 migrating from compose to quadlet, point the quadlet's `Volume=` at the
 existing compose volume or the relay starts up with no paired devices.
 
-Pair devices by running `term-bridge pair-device` on the Mac agent (see [Pair
+Pair devices by running `term-bridge pair-device` on the host (see [Pair
 a device](#pair-a-device) below) — the relay side needs no manual step.
 
 ## Agent (Mac)
@@ -213,17 +225,23 @@ What differs from cmux, by design: a pane is its own only surface, so there
 is no "add as tab" (the app hides it from the host's advertised
 capabilities); a window a phone is viewing is sized to the phone
 (`resize-window`) and handed back to attached clients a few seconds after the
-phone leaves; the structured Inbox (permission prompts, questions) is not yet
-available on tmux hosts.
+phone leaves; the structured Inbox (permission prompts, questions), YOLO mode
+and attention pushes are not yet available on tmux hosts -- the agent
+advertises `feed: false` and the app hides them. Claude Code hooks will
+bring them (see `docs/superpowers/specs/2026-09-14-linux-tmux-host-design.md`).
+
+The agent is co-located with the relay in the reference deployment; it still
+dials the relay's **public** nginx name like any other host (hairpin), so
+there is no loopback special case and the same cert bootstrap applies.
 
 ## Agent client certificate
 
-The Mac no longer needs a hand-rolled client cert. The relay generates its own
-CA the first time it starts, and a new agent registers itself against it the
-first time *it* starts:
+No host needs a hand-rolled client cert. The relay generates its own CA the
+first time it starts, and a new agent (Mac or Linux alike) registers itself
+against it the first time *it* starts:
 
 1. Point `bootstrap_url` in `agent.toml` at the relay's no-mTLS bootstrap
-   vhost, e.g. `https://cmux.example.com:8444/tenants/register` — that's
+   vhost, e.g. `https://term-bridge.example.com:8444/tenants/register` — that's
    `deploy/nginx-term-bridge-relay-bootstrap.conf`, which proxies only that one path.
    A brand-new agent has no client cert yet, so it can't reach the main mTLS
    vhost at all; this separate surface is how it gets one.
@@ -252,11 +270,14 @@ first time *it* starts:
 ## Pair a device
 
 Pairing is self-service now — no operator step, and no hand-rolled `.p12`
-client certificate. Run this on the **Mac**, once the agent has registered
-(see [Agent client certificate](#agent-client-certificate) above) — it uses
-the agent's own e2e identity and session store, so running it anywhere else
-mints a second identity on the wrong host and the phone's traffic will never
-decrypt:
+client certificate. Run this on the **host you are pairing** (the Mac or the
+Linux box), once its agent has registered (see [Agent client
+certificate](#agent-client-certificate) above) — it uses that agent's own e2e
+identity and session store, so running it anywhere else mints a second
+identity on the wrong host and the phone's traffic will never decrypt. The
+phone identifies a host by that identity: pair the same machine's relay and
+Tailscale slots and they land under one host in the app; pair a second
+machine and it appears as a second host to switch to:
 
 ```bash
 term-bridge pair-device --config ~/.config/term-bridge/agent.toml
@@ -266,7 +287,7 @@ This asks the relay for a fresh, single-use pairing code, then prints a QR
 code (and the code itself, for manual entry) to the terminal:
 
 ```
-Scan this QR code with the cmux app (code expires 2026-07-02T15:32:00Z):
+Scan this QR code with the Term Bridge app (code expires 2026-07-02T15:32:00Z):
 
 █▀▀▀▀▀█ ▀▄█▀▀▄██ █▀▀▀▀▀█
 █ ███ █ █▀▄ ▀▀▄█ █ ███ █
@@ -401,10 +422,16 @@ To get "agent needs you" notifications:
    Sending still needs `fcm_credentials`, which never leaves the home server.
    The config is delivered by pairing and only by pairing, so phones paired
    before these were set must re-pair.
-4. The app registers its FCM token via `POST /devices/register`. The relay opens
-   its own `/events` subscription over the agent tunnel; when an agent raises a
-   blocking prompt it sends a high-priority FCM data message to every paired
-   device.
+4. The app registers its FCM token via `POST /devices/register` -- with
+   **every** host it is paired to, since each is a separate tenant. The relay
+   opens its own `/events` subscription over each agent tunnel; when an agent
+   raises a blocking prompt it sends a high-priority FCM data message to every
+   device paired to that tenant. The payload carries no host id: the phone
+   tries each paired host's e2e session and only the right one decrypts.
+
+Attention pushes come from cmux hosts today; a tmux host raises none until
+the Claude Code hooks land. Test pushes (`POST /devices/test-push`) work on
+both.
 
 cmux redacts the actual prompt text in its event stream, so push triggers on
 the Claude Code hook name (`Notification` covers permission prompts and idle
@@ -426,21 +453,22 @@ which pane raised the prompt, so pane-exact linking isn't possible.
 
 The app's base URL is the relay's public domain (`https://<your-domain>`). All
 routes require `Authorization: Bearer <device-token>`. A `503 {"error":
-"agent_offline"}` means the Mac agent is not currently connected to the relay.
+"agent_offline"}` means that host's agent is not currently connected to the
+relay.
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET  | `/sessions` | list workspaces/terminals (normalized) |
+| GET  | `/sessions` | list workspaces/terminals (normalized), plus a `host` block: `{name, kind: "cmux" \| "tmux", capabilities: {tabs, feed}}` the app gates its UI on |
 | GET  | `/events` (WS) | agent feed + notifications; `needs_attention` flags blocking prompts |
 | GET  | `/terminal/{id}` (WS) | replay + live output (down); input/paste/resize (up) |
 | GET  | `/feed/pending` | list pending blocking prompts (full question/option structure) |
 | POST | `/feed/{id}/reply` | answer a prompt: `{kind, request_id, params}` |
-| POST | `/sessions/{id}/rename` | set a workspace's title in cmux: `{title}` |
+| POST | `/sessions/{id}/rename` | set a workspace's title (cmux workspace title / tmux window name): `{title}` |
 | POST | `/sessions/{id}/yolo-mode` | set a workspace's auto-reply mode for permission prompts: `{mode}` (`""` \| `always` \| `all` \| `bypass`) |
 | POST | `/sessions` | create a workspace: `{cwd, title?}`; `cwd` must exist, be a directory and lie under `$HOME` → `{workspace_id, surface_id}` |
 | GET  | `/sessions/{id}/layout` | where the workspace's panes sit, as fractions of their bounding box: `{estimated, panes:[{id,x,y,w,h,focused,surface_ids,selected_surface_id}]}` |
-| POST | `/sessions/{id}/panes` | new terminal relative to a viewed surface: `{surface_id, placement}` (`left` \| `right` \| `up` \| `down` \| `tab`) → `{surface_id, pane_id}` |
-| POST | `/sessions/{id}/select` | show the workspace on the Mac, focusing `{surface_id?}` |
+| POST | `/sessions/{id}/panes` | new terminal relative to a viewed surface: `{surface_id, placement}` (`left` \| `right` \| `up` \| `down` \| `tab`; `tab` is refused where `capabilities.tabs` is false) → `{surface_id, pane_id}` |
+| POST | `/sessions/{id}/select` | show the workspace on the host, focusing `{surface_id?}` |
 | DELETE | `/sessions/{id}` | close a workspace |
 | DELETE | `/sessions/{id}/panes/{surfaceId}` | close one terminal surface |
 | POST | `/devices/register` | store this device's FCM token: `{fcm_token}` |
@@ -449,8 +477,15 @@ routes require `Authorization: Bearer <device-token>`. A `503 {"error":
 | GET  | `/devices/pair-info/{code}` | resolve a pairing code's agent pubkey for manual entry (no auth) |
 | GET  | `/healthz` | relay liveness check (no auth) |
 
-Terminal frames carry cmux's `render_grid` (`format: "cmux.render-grid.v1"`)
-verbatim; the client renders it as a styled cell grid.
+Terminal frames carry a cell grid (`format: "cmux.render-grid.v1"`): cmux's
+`render_grid` verbatim on a Mac, and on a tmux host the same shape built from
+`capture-pane -e` (SGR parsed into per-cell styles). The client renders both
+identically. Ids are opaque to the app: cmux UUIDs, or tmux's `$n` window
+and `%n` pane ids.
+
+`/feed/pending`, `/feed/{id}/reply` and `/sessions/{id}/yolo-mode` answer
+on cmux hosts; a tmux host advertises `capabilities.feed = false` and the
+app does not call them.
 
 `feed.*.reply`'s params beyond `request_id` (confirmed against cmux's own RPC
 contract strings, not guessed): `feed.permission.reply` takes
@@ -476,9 +511,18 @@ workspace's directory must exist, be a directory and lie under `$HOME`.
 It never restores sessions. Tests use a fake `cmux` binary and never touch
 the real socket.
 
+On a tmux host the same routes map onto `list-windows`/`list-panes`,
+`capture-pane`, `send-keys`/`paste-buffer`, `resize-window`, `new-window`,
+`split-window`, `rename-window`, `select-window` and `kill-window`/`kill-pane`,
+always targeting a window or pane by id (`$n`/`%n`), never "the current
+one". A control-mode client (`tmux -C attach -f no-output`) supplies the
+structural change events. Tests run against a fake `tmux` script that also
+plays back recorded control-mode notification bursts; the SGR parser has a
+`capture-pane -e` fixture of a real Claude Code prompt.
+
 **YOLO mode** is an opt-in, per-workspace auto-reply for permission prompts,
 enabled via `POST /sessions/{id}/yolo-mode`. The mode (`always`/`all`/
-`bypass`) is persisted locally on the Mac agent (a SQLite store at
+`bypass`) is persisted locally on the agent (a SQLite store at
 `~/.config/term-bridge/yolo.db`, overridable with `yolo_store`, keyed by
 workspace ID — never sent to cmux itself). When a workspace with a
 mode set gets a pending `permissionRequest`-kind feed item, the agent replies to it
@@ -493,6 +537,8 @@ share (confirmed live; see `internal/server/yolo.go`).
 
 ## Licensing
 
-The bridge is an independent work that communicates with cmux over its IPC/CLI.
-It contains no cmux source. cmux is GPLv3; consuming its documented protocol over
-IPC does not make this a derivative work.
+The bridge is an independent work that communicates with cmux over its
+IPC/CLI and with tmux over its command-line interface and control mode. It
+contains no cmux or tmux source. cmux is GPLv3 and tmux is ISC-licensed;
+consuming a documented protocol over IPC does not make this a derivative work
+of either.

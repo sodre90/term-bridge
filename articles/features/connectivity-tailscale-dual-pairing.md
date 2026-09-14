@@ -12,6 +12,8 @@ tags:
 ---
 ## Summary
 
+> **Since 2026-09-14** the agent also fronts tmux on a Linux host and the app pairs with several hosts; where this write-up says "the Mac" or "the Mac agent", read "the host" -- see [overview](../overview.md) for the current shape.
+
 Two linked connectivity projects for the transport layer: Tailscale-direct transport adds an optional second listener to `term-bridge agent` so the phone can talk straight to the Mac over a Tailscale tailnet, bypassing the relay and home server entirely; dual-pairing automatic fallback builds on top of it so the Android app pairs against both relay and direct simultaneously and automatically fails over between them with no user action. See [overview](../overview.md) for how Direct (Tailscale) mode fits the shipped feature set, and [bridge-relay-architecture](./bridge-relay-architecture.md) for the relay this is an alternative to.
 
 ## Body

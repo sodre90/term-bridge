@@ -1,17 +1,26 @@
 # Term Bridge (Android)
 
 A native Android client for [`term-bridge`](../bridge). It connects to the bridge
-**behind your mTLS nginx edge** to list cmux sessions, drive a live terminal, and
-answer agent prompts — with optional FCM push when an agent needs your attention.
+**behind your mTLS nginx edge** to list the sessions on your hosts -- cmux
+workspaces on a Mac, tmux windows on a Linux box -- drive a live terminal, and
+answer agent prompts — with optional FCM push when an agent needs your
+attention. Pair as many hosts as you like and switch between them from the
+sessions title.
 
 The app depends only on the bridge's documented HTTP/WebSocket contract
 (`GET /sessions`, `WS /events`, `WS /terminal/{id}`, `POST /feed/{id}/reply`,
-`POST /devices/register`), never on cmux internals. Every request carries an
-`Authorization: Bearer <device-token>` minted at pairing — no client TLS
-certificate on the device side (only the Mac agent has one). Once paired,
-request/response bodies and terminal frames are also end-to-end encrypted
-between the phone and the Mac agent (X25519 ECDH + HKDF derived during
-pairing), so the relay can route traffic but not read it.
+`POST /devices/register`), never on cmux or tmux internals; `GET /sessions`
+also carries a `host` block (name, kind, capabilities) that the app gates its
+UI on -- a tmux host has no tabs and, until its hooks land, no Inbox/YOLO.
+Every request carries an `Authorization: Bearer <device-token>` minted at
+pairing — no client TLS certificate on the device side (only agents have
+one). Once paired, request/response bodies and terminal frames are also
+end-to-end encrypted between the phone and that host's agent (X25519 ECDH +
+HKDF derived during pairing), so the relay can route traffic but not read
+it. Credentials, keys and workspace order are kept per host, keyed by the
+agent's identity key, so the same machine's relay and Tailscale pairings
+share one host entry; display preferences (font zoom, wheel scrolling, poll
+intervals) stay phone-wide.
 
 ## Requirements
 
@@ -42,8 +51,9 @@ On first launch — or any time the app has no bridge config yet — it opens th
 **Pairing** screen instead of the sessions list. Pairing is entirely
 self-service now: nothing to generate or paste by hand.
 
-On the Mac, with the agent running (see
-[`bridge/README.md` → Agent](../bridge/README.md#agent-mac)):
+On the host, with its agent running (see [`bridge/README.md` → Agent
+(Mac)](../bridge/README.md#agent-mac) or [→ Agent (Linux,
+tmux)](../bridge/README.md#agent-linux-tmux)):
 
 ```bash
 term-bridge pair-device --config ~/.config/term-bridge/agent.toml
@@ -62,11 +72,11 @@ bridge's base URL and the bearer token it's issued. No further input needed.
 
 ### Option 2: enter the server URL and code manually
 
-No camera handy, or pairing remotely (e.g. over SSH into the Mac)? Tap
+No camera handy, or pairing remotely (e.g. over SSH into the host)? Tap
 **"Enter server URL and code manually"** and fill in:
 
 - **Server URL** — the same `https://` base the QR's `pair_url` uses (e.g.
-  `https://cmux.example.com`).
+  `https://term-bridge.example.com`).
 - **Pairing code** — the short code `pair-device` printed next to the QR.
 
 The app resolves the agent's public key via the relay's `GET
@@ -77,18 +87,28 @@ path from there.
 
 Before either path completes, the phone shows a short fingerprint and waits
 for you to confirm it, while `pair-device` prints the same fingerprint on the
-Mac and asks `Confirm? [y/N]:`. **Compare the two and only accept if they
+host and asks `Confirm? [y/N]:`. **Compare the two and only accept if they
 match** — this is what stops the relay from swapping in its own key and
-reading your traffic. Anything other than `y` on the Mac aborts the pairing.
+reading your traffic. Anything other than `y` on the host aborts the pairing.
 
 Either way, once pairing succeeds the app moves to the sessions list; the
 start screen on subsequent launches is the sessions list whenever a bridge
 config is already present. A pairing code is single-use and expires (10
 minutes) — if it's stale, generate a fresh one with `pair-device` and retry.
 
+### More hosts
+
+Tap the host name in the sessions title → **Pair another host…** (or
+Settings → Connections → Pair another host) and repeat the steps above on
+the second machine. The new host is selected as soon as it pairs; its name
+and kind (`cmux` / `tmux`) are learned from the host on the first
+`GET /sessions`. The same menu switches hosts; Connections shows one card
+per host with its Relay and Tailscale slots, and forgetting a host's last
+slot removes the host.
+
 ### Direct (Tailscale) mode and dual pairing
 
-The Connections screen holds two independent slots — a relay pairing and a
+Each host on the Connections screen holds two independent slots — a relay pairing and a
 direct (Tailscale) pairing — and you can fill both. When both are paired the
 app tries the relay first and transparently fails over to direct, so pairing
 both is the recommended setup. See
@@ -123,7 +143,8 @@ from the other, and push fails silently.
 
 ## Out of scope (for now)
 
-Creating/closing sessions, file-diff viewing, multiple Macs, biometric lock, and
-tablet-specific layouts. The bridge only performs read methods, terminal
-input/replay, feed replies, and workspace rename (setting a title) — it never
-creates, closes, or restores workspaces/terminals.
+File-diff viewing, a merged sessions list across hosts, biometric lock, and
+tablet-specific layouts. The bridge performs read methods, terminal
+input/replay, feed replies, workspace rename, and workspace/pane create,
+select and close (each confirmed on the phone where destructive) — it never
+restores workspaces/terminals.

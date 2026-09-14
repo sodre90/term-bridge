@@ -11,6 +11,8 @@ tags:
 ---
 ## Summary
 
+> **Since 2026-09-14** the agent also fronts tmux on a Linux host and the app pairs with several hosts; where this write-up says "the Mac" or "the Mac agent", read "the host" -- see [overview](../overview.md) for the current shape.
+
 An agent-native FCM push path for phones paired only via direct (Tailscale) mode. It exists because push notifications ("agent needs your attention") were previously delivered exclusively through the relay, so any phone paired without a relay connection got zero push, permanently, by design. This adds a second, independent push path running directly on the Mac agent, bypassing the relay entirely for direct-mode phones. See [overview](../overview.md) for the shipped push feature and [connectivity-tailscale-dual-pairing](./connectivity-tailscale-dual-pairing.md) for the direct-mode transport this depends on.
 
 ## Body

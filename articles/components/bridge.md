@@ -1,6 +1,6 @@
 ---
 type: article
-description: "term-bridge component reference: the term-bridge-relay and term-bridge agent Go binaries — architecture, build, deployment, pairing, and API."
+description: "term-bridge component reference: the term-bridge-relay and term-bridge agent Go binaries — architecture, the Host seam (cmux on a Mac, tmux on Linux), build, deployment, pairing, and API."
 status: canonical
 authored: 2026-07-21
 author: sodre90
@@ -12,13 +12,13 @@ tags:
 ---
 ## Summary
 
-`term-bridge` is two Go binaries that give a phone remote access to a Mac's cmux sessions: `term-bridge-relay` (a rendezvous daemon on a home server, behind nginx mTLS) and `term-bridge agent` (runs on the Mac, dials out to the relay so the Mac needs no inbound ports). Both speak to cmux only through the documented `cmux` CLI (`cmux rpc` / `cmux events`) — no cmux socket password is stored, no cmux source is copied.
+`term-bridge` is two Go binaries that give a phone remote access to the terminal sessions on your hosts — cmux on a Mac, tmux on a Linux box: `term-bridge-relay` (a rendezvous daemon on a home server, behind nginx mTLS) and `term-bridge agent` (runs on each host, dials out to the relay so no host needs inbound ports). The agent speaks to its backend only through the documented CLI (`cmux rpc` / `cmux events`; the `tmux` command and its control mode) — no socket password is stored, no cmux or tmux source is copied. The two backends sit behind one `Host` interface (`internal/host`: `cmuxhost`, `tmuxhost`), so the server, relay, auth, e2e and push code is shared.
 
 ## Body
 
 ### Architecture (v2 relay topology)
 
-The relay multiplexes every app request as a fresh [yamux](https://github.com/hashicorp/yamux) stream over the single agent tunnel (a WebSocket, so it traverses nginx on 443). The agent serves its existing handler verbatim. When the Mac is not connected, the relay returns `503 {"error":"agent_offline"}`.
+The relay multiplexes every app request as a fresh [yamux](https://github.com/hashicorp/yamux) stream over that tenant's single agent tunnel (a WebSocket, so it traverses nginx on 443). The agent serves its handler verbatim. When a host is not connected, the relay returns `503 {"error":"agent_offline"}` for that tenant only; every host is its own tenant.
 
 Security is layered: mutual TLS at the nginx edge for the agent only (`ssl_verify_client optional` — the agent presents a client cert signed by the relay's own CA and is routed by its verified CN; devices have no client cert) + a per-device bearer token checked by the relay + end-to-end encryption between phone and agent (X25519 ECDH + HKDF derived at pairing, AEAD over every HTTP body and terminal WS frame, replay-protected) + an `X-Relay-Token` shared secret the relay injects so the agent only honors relay-originated requests. The relay binds loopback only; the agent has no listening port at all. See [pairing-e2e-encryption](../features/pairing-e2e-encryption.md) for the crypto detail and [bridge-relay-architecture](../features/bridge-relay-architecture.md) for the original design rationale.
 
@@ -29,7 +29,7 @@ Requires Go 1.26+.
 ```bash
 cd bridge
 go build -o term-bridge-relay  ./cmd/term-bridge-relay     # for the home server
-go build -o term-bridge ./cmd/term-bridge    # for the Mac (agent mode)
+go build -o term-bridge ./cmd/term-bridge    # for a host (agent mode; GOOS=linux GOARCH=amd64 to cross-build)
 go test ./...        # all tests run with no network and no real cmux
 ```
 
@@ -37,7 +37,7 @@ go test ./...        # all tests run with no network and no real cmux
 
 1. Copy the binary to `/usr/local/bin/term-bridge-relay`.
 2. Copy `deploy/relay.example.toml` to `/etc/term-bridge-relay/config.toml` and set `relay_token` plus optionally the FCM fields. On first run the relay generates its own CA (`ca_cert`/`ca_key`) and signs every agent and device cert against it. Migrating an existing deployment with its own CA (RSA or ECDSA)? Point `ca_cert`/`ca_key` at those files and the relay reuses it.
-3. Install the systemd unit and nginx vhost (`deploy/term-bridge-relay.service`, `deploy/nginx-term-bridge-relay.conf`). If a new Mac agent will self-register, also install the no-mTLS bootstrap vhost (`deploy/nginx-term-bridge-relay-bootstrap.conf`, proxies only `POST /tenants/register` on a separate port).
+3. Install the systemd unit and nginx vhost (`deploy/term-bridge-relay.service`, `deploy/nginx-term-bridge-relay.conf`). If a new agent will self-register, also install the no-mTLS bootstrap vhost (`deploy/nginx-term-bridge-relay-bootstrap.conf`, proxies only `POST /tenants/register` on a separate port).
 
 The relay binds `127.0.0.1:8765`; nginx is the only public surface. nginx must set `X-Client-Cert-CN $ssl_client_s_dn` (never trust an inbound value).
 
@@ -45,16 +45,20 @@ Can also run in a container (podman): `docker-compose.yml` + `deploy/Containerfi
 
 ### Agent (Mac)
 
-The agent must run in the GUI login session to reach the per-user cmux socket.
+The agent must run in the GUI login session to reach the per-user cmux socket (`host = "cmux"`, the default).
 
 1. Copy `deploy/agent.example.toml` to `~/.config/term-bridge/agent.toml`; set `relay_url` (`wss://<your-domain>/agent/tunnel`), client-cert paths, server CA, and the same `relay_token` as the relay.
 2. Install the LaunchAgent (`deploy/com.sodre90.term-bridge.plist`, `launchctl bootstrap`/`kickstart`).
 
 The agent reconnects automatically (exponential backoff, capped at 30s) if the relay or network drops.
 
+### Agent (Linux, tmux)
+
+The same binary fronts a Linux box with `host = "tmux"` in `agent.toml` (`deploy/agent.linux.example.toml`): every tmux window on the server is a workspace, every pane a terminal, ids are tmux's `$n`/`%n`. The agent, the tmux server and whatever runs inside it must be the same Unix user (tmux socket). It ships as a systemd user unit (`deploy/term-bridge-agent.service`, `loginctl enable-linger`), logs to journald, and dials the relay's public nginx name like any other host — it is a tenant of its own, so the phone pairs with it separately. Differences by design: no "add as tab" (`capabilities.tabs = false`), a viewed window is sized to the phone (`resize-window`) and handed back afterwards, and the structured Inbox/YOLO/attention pushes are not yet available (`capabilities.feed = false`) until the Claude Code hooks land — see the [Linux host design](../../docs/superpowers/specs/2026-09-14-linux-tmux-host-design.md).
+
 ### Agent client certificate
 
-The Mac no longer needs a hand-rolled client cert:
+No host needs a hand-rolled client cert:
 
 1. `bootstrap_url` in `agent.toml` points at the relay's no-mTLS bootstrap vhost.
 2. On first run — only while `client_cert` doesn't exist on disk yet — the agent generates a keypair, sends a CSR to `bootstrap_url`, and the relay mints a fresh tenant and signs the cert with CN `agent:<tenant-id>` against its own CA. The agent writes the cert/key and prints the assigned tenant ID.
@@ -82,7 +86,7 @@ There is no manual-pairing fallback: a phone paired under the old `term-bridge-r
 
 ### Direct (Tailscale) mode
 
-An optional, additive alternative to the relay: if the Mac and phone share a Tailscale tailnet, the phone can talk straight to the Mac agent with no relay and no home server in the path. The relay keeps working exactly as before — this is a second listener, not a replacement, and push notifications still require the relay. See [connectivity-tailscale-dual-pairing](../features/connectivity-tailscale-dual-pairing.md) for the full design (MagicDNS + HTTPS cert issuance, `direct_listen` config, dual-pairing automatic fallback).
+An optional, additive alternative to the relay: if a Mac and the phone share a Tailscale tailnet, the phone can talk straight to that Mac's agent with no relay and no home server in the path. The relay keeps working exactly as before — this is a second listener, not a replacement, and push notifications still require the relay. See [connectivity-tailscale-dual-pairing](../features/connectivity-tailscale-dual-pairing.md) for the full design (MagicDNS + HTTPS cert issuance, `direct_listen` config, dual-pairing automatic fallback).
 
 Switching between relay and direct mode in the original v1 shipped as a manual re-pair — no automatic fallback in that version (later addressed, see [connectivity-tailscale-dual-pairing](../features/connectivity-tailscale-dual-pairing.md)).
 
@@ -94,13 +98,13 @@ See `deploy/nginx-term-bridge-relay.conf`. Point the home-server DNS name at ngi
 
 1. Create a Firebase project and a service-account JSON key.
 2. Put the key on the home server; set `fcm_project_id` + `fcm_credentials` in the relay config.
-3. The app registers its FCM token via `POST /devices/register`. The relay opens its own `/events` subscription over the agent tunnel; when an agent raises a blocking prompt it sends a high-priority FCM data message to every paired device.
+3. The app registers its FCM token via `POST /devices/register` with every host it is paired to. The relay opens its own `/events` subscription over each agent tunnel; when an agent raises a blocking prompt it sends a high-priority FCM data message to every device paired to that tenant. The payload carries no host id; the phone tries each paired host's e2e session and only the right one decrypts. Attention pushes come from cmux hosts today.
 
 cmux redacts the actual prompt text in its event stream, so push triggers on the Claude Code hook name (`Notification` covers permission prompts and idle "waiting for input"; `AskUserQuestion` is an explicit blocking choice) rather than structured feed content. The notification body is enriched with the workspace's live title + status preview. Tapping the notification deep-links to that workspace's terminal. See [push-notifications](../features/push-notifications.md) for the later agent-native (direct-mode) push path.
 
 ### API
 
-The app's base URL is the relay's public domain. All routes require `Authorization: Bearer <device-token>`. A `503 {"error":"agent_offline"}` means the Mac agent is not currently connected to the relay.
+The app's base URL is the relay's public domain. All routes require `Authorization: Bearer <device-token>`. A `503 {"error":"agent_offline"}` means that host's agent is not currently connected to the relay. `GET /sessions` carries a `host` block (`name`, `kind`, `capabilities: {tabs, feed}`) the app gates its UI on.
 
 | Method | Path | Purpose |
 |---|---|---|
@@ -121,7 +125,7 @@ Terminal frames carry cmux's `render_grid` (`format: "cmux.render-grid.v1"`) ver
 
 The bridge calls only read methods, terminal input/replay, feed replies, workspace rename (cmux's own `workspace.rename` RPC), and YOLO mode's auto-replies to permission prompts. It never creates, closes, or restores workspaces/terminals. Tests use a fake `cmux` binary and never touch the real socket.
 
-YOLO mode is an opt-in, per-workspace auto-reply for permission prompts, persisted locally on the Mac agent (`~/.config/term-bridge/yolo.json`, keyed by workspace ID, never sent to cmux itself). `bypass` mirrors Claude Code's own `--dangerously-skip-permissions`. Correlating a pending item to a workspace is done by matching cwd, since cmux pending items key on the agent's own session ID, not the cmux workspace ID.
+YOLO mode is an opt-in, per-workspace auto-reply for permission prompts, persisted locally on the agent (`~/.config/term-bridge/yolo.db`, keyed by workspace ID, never sent to cmux itself). `bypass` mirrors Claude Code's own `--dangerously-skip-permissions`. Correlating a pending item to a workspace is done by matching cwd, since cmux pending items key on the agent's own session ID, not the cmux workspace ID.
 
 ### Licensing
 

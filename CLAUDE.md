@@ -1,8 +1,12 @@
 # term-bridge — agent operating card
 
 Android (Kotlin/Compose) phone client + two Go binaries (`term-bridge-relay` home-server
-daemon, `term-bridge agent` on the Mac). Full context: `docs/improvement-guide.md`
-(read it before any non-trivial change). Architecture/security model: `README.md`.
+daemon, `term-bridge agent` on each host -- a Mac running cmux or a Linux box
+running tmux, behind one `Host` interface). The app pairs with several hosts
+and switches between them. Full context: `docs/improvement-guide.md` (read it
+before any non-trivial change). Architecture/security model: `README.md`;
+the Linux/tmux/multi-host design:
+`docs/superpowers/specs/2026-09-14-linux-tmux-host-design.md`.
 
 ## Build & verify (run before every commit)
 
@@ -25,6 +29,11 @@ landed broken while it was missing from this list.
    create methods fall back to whatever is focused on the Mac when given
    none, so never call `workspace.create`/`surface.create` to probe them
    (see `docs/superpowers/specs/2026-09-12-workspace-layout-control-design.md`).
+   **tmux likewise**: only via the `tmux` CLI and its control mode (`tmux
+   -C`), always targeting a window/pane by `$n`/`%n` id, never "the current
+   one"; never read its source or socket format. Live probing of either is
+   confined to the scratch tmux session `cmux-app-scratch` on the home
+   server; never create/kill against a live session.
 2. **`internal/relay/multitenant_test.go` must always pass** — it enforces
    tenant isolation, not just a test.
 3. **Wire-format lockstep.** The app<->bridge protocol is hand-mirrored in

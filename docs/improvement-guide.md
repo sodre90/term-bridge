@@ -1,4 +1,4 @@
-# cmux-app improvement guide
+# term-bridge improvement guide
 
 **Audience:** an implementing AI model (Sonnet 5) working in this repo with the
 human developer reviewing.
@@ -17,10 +17,15 @@ single sitting), **M** (half-day-ish), **L** (multi-day / needs a design pass).
 ## 0. Orientation
 
 - **What this is:** an Android (Kotlin/Compose) phone client + two Go binaries
-  (`term-bridge-relay` home-server daemon, `term-bridge agent` on the Mac) that
-  together let a phone drive cmux agent sessions remotely. Read the root
+  (`term-bridge-relay` home-server daemon, `term-bridge agent` on each host)
+  that together let a phone drive terminal agent sessions remotely. A host is
+  a Mac running cmux or a Linux box running tmux; the agent fronts either
+  behind `internal/host.Host` (`cmuxhost`, `tmuxhost`), and the app pairs
+  with several hosts and switches between them (`HostRegistry`,
+  `HostConnections`, everything stored per `HostId`). Read the root
   `README.md` first — the architecture diagram and security model there are
-  accurate and current.
+  accurate and current; the host seam and multi-host design are in
+  `docs/superpowers/specs/2026-09-14-linux-tmux-host-design.md`.
 - **Scale:** ~4.9k lines main Kotlin (45 files, 23 test files), ~13k lines Go
   (46 prod files, 46 test files). Small and healthy — prefer surgical changes,
   never sweeping rewrites.
@@ -42,7 +47,10 @@ Violating any of these is a rejected change, regardless of how nice the diff is.
    creation, selection and closing arrived 2026-09-12 (see
    `docs/superpowers/specs/2026-09-12-workspace-layout-control-design.md`);
    every such call names its target by UUID and never takes focus on the
-   Mac unless the phone asked for it.
+   Mac unless the phone asked for it. **tmux is a black box the same way:**
+   the `tmux` CLI and control mode only (`internal/tmux`), every command
+   targeting a `$n`/`%n` id, never the current window/pane; probe only in
+   the scratch session `cmux-app-scratch` on the home server.
 2. **`internal/relay/multitenant_test.go` must always pass.** It is the
    enforcement of the tenant-isolation security model, not just a test.
 3. **Wire-format lockstep.** The app↔bridge protocol is hand-mirrored between
@@ -275,8 +283,9 @@ regression → nonce-reuse risk) or drop a freshly paired device.
   the rest.
 
 ### 5.5 Fast-path socket pool — **M** (after 5.4; measure first)
-`internal/cmux/client.go` funnels **all** cmux RPC (every device, every
-workspace: input, replay polls, renames, yolo replies) through one
+The cmux host (`internal/host/cmuxhost`) funnels **all** cmux RPC via
+`internal/cmux/client.go` (every device, every workspace: input, replay
+polls, renames, yolo replies) through one
 `socketConn` whose mutex is held for the whole round-trip — a slow replay
 blocks an unrelated input ack. The `committed`-flag idempotency logic already
 makes multiple connections safe.
@@ -321,7 +330,7 @@ choke point), pairing issued/redeemed/expired, push sent/failed (`pushmon`
   under the existing integration tests.
 
 ### 6.3 Agent status surface — **S/M**
-The Mac agent has no health surface: an operator can't ask "tunnel up? cmux
+The host agent has no health surface: an operator can't ask "tunnel up? cmux
 reachable? last event when?". Add a `term-bridge status` subcommand (read a
 small status file the agent maintains, or a local unix-socket query).
 Optionally deepen relay `/healthz` to ping its store.

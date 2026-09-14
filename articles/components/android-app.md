@@ -1,6 +1,6 @@
 ---
 type: article
-description: "Android app component reference: requirements, build, pairing setup, push, known gaps, and out-of-scope items."
+description: "Android app component reference: requirements, build, pairing setup (one or more hosts), push, known gaps, and out-of-scope items."
 status: canonical
 authored: 2026-07-21
 author: sodre90
@@ -12,13 +12,13 @@ tags:
 ---
 ## Summary
 
-The Android app (`com.sodre90.cmuxremote`) is a native Kotlin/Compose client for `term-bridge`. It connects to the bridge behind the mTLS nginx edge to list cmux sessions, drive a live terminal, and answer agent prompts, with optional FCM push. It depends only on the bridge's documented HTTP/WebSocket contract, never on cmux internals.
+The Android app (`com.sodre90.cmuxremote`) is a native Kotlin/Compose client for `term-bridge`. It connects to the bridge behind the mTLS nginx edge to list the sessions on your hosts (cmux workspaces on a Mac, tmux windows on a Linux box), drive a live terminal, and answer agent prompts, with optional FCM push. It pairs with any number of hosts, keeps credentials, keys and workspace order per host (keyed by the agent's identity key), and switches between them from the sessions title. It depends only on the bridge's documented HTTP/WebSocket contract, never on cmux or tmux internals; the `host` block on `GET /sessions` tells it what each host can do (a tmux host has no tabs and, until its hooks land, no Inbox/YOLO).
 
 ## Body
 
 ### Trust model
 
-Every request carries an `Authorization: Bearer <device-token>` minted at pairing — no client TLS certificate on the device side (only the Mac agent has one). Once paired, request/response bodies and terminal frames are also end-to-end encrypted between the phone and the Mac agent (X25519 ECDH + HKDF derived during pairing), so the relay can route traffic but not read it. See [pairing-e2e-encryption](../features/pairing-e2e-encryption.md).
+Every request carries an `Authorization: Bearer <device-token>` minted at pairing — no client TLS certificate on the device side (only agents have one). Once paired, request/response bodies and terminal frames are also end-to-end encrypted between the phone and that host's agent (X25519 ECDH + HKDF derived during pairing), so the relay can route traffic but not read it. See [pairing-e2e-encryption](../features/pairing-e2e-encryption.md).
 
 ### Requirements
 
@@ -40,7 +40,7 @@ Or open `android/` in Android Studio, sync, then Run `app` on a device or emulat
 
 On first launch — or any time the app has no bridge config yet — it opens the Pairing screen instead of the sessions list. Pairing is entirely self-service: nothing to generate or paste by hand.
 
-On the Mac, with the agent running:
+On the host, with its agent running:
 
 ```bash
 term-bridge pair-device --config ~/.config/term-bridge/agent.toml
@@ -50,7 +50,7 @@ This prints a QR code and, alongside it, a short code for manual entry.
 
 **Option 1: scan the QR code.** Grant the camera permission, point it at the QR code. The QR payload carries the server URL, a one-time pairing code, and the agent's public key — the app redeems the code with the relay, generates its own X25519 keypair (kept in `EncryptedSharedPreferences`, persisted thereafter), derives a shared secret with the agent, and stores the bridge's base URL and the bearer token it's issued.
 
-**Option 2: enter the server URL and code manually.** No camera handy, or pairing remotely (e.g. over SSH into the Mac)? Tap "Enter server URL and code manually" and fill in the same `https://` base the QR's `pair_url` uses, plus the printed pairing code. The app resolves the agent's public key via `GET /devices/pair-info/{code}` and completes the same handshake as the QR path.
+**Option 2: enter the server URL and code manually.** No camera handy, or pairing remotely (e.g. over SSH into the host)? Tap "Enter server URL and code manually" and fill in the same `https://` base the QR's `pair_url` uses, plus the printed pairing code. The app resolves the agent's public key via `GET /devices/pair-info/{code}` and completes the same handshake as the QR path.
 
 Either way, once pairing succeeds the app moves to the sessions list; the start screen on subsequent launches is the sessions list whenever a bridge config is already present. A pairing code is single-use and expires (10 minutes).
 
@@ -72,7 +72,7 @@ Two earlier open questions are resolved: workspace id and terminal surface id ar
 
 ### Out of scope (for now)
 
-Creating/closing sessions, file-diff viewing, multiple Macs, biometric lock, and tablet-specific layouts. The bridge only performs read methods, terminal input/replay, feed replies, and workspace rename — it never creates, closes, or restores workspaces/terminals.
+File-diff viewing, a merged sessions list across hosts, biometric lock, and tablet-specific layouts. The bridge performs read methods, terminal input/replay, feed replies, workspace rename, and workspace/pane create, select and close (confirmed on the phone where destructive) — it never restores workspaces/terminals.
 
 ## References
 

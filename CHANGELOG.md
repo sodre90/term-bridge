@@ -12,6 +12,43 @@ every section after it itemizes changes individually. Purely internal refactors
 
 ## [Unreleased]
 
+The phone now reaches a headless Linux box running tmux, next to the Mac
+running cmux, and switches between them.
+
+### Added
+
+- **Linux host: tmux behind a `Host` seam.** The agent fronts either cmux
+  or tmux (`host = "tmux"` in `agent.toml`; `bridge/internal/host`,
+  `cmuxhost`, `tmuxhost`). On tmux every window is a workspace and every
+  pane a terminal, across all sessions on the server; list, render
+  (`capture-pane -e` parsed into the same cell grid the app already draws,
+  incl. 16/256/truecolour, italic, underline, wide chars), input, paste,
+  resize (window sized to the phone while viewed, released afterwards),
+  split, rename, create, close, and structural change events from a
+  control-mode client. Ids are tmux's `$n`/`%n`; every command targets one
+  explicitly. Ships as a systemd user unit (`deploy/term-bridge-agent.service`,
+  `deploy/agent.linux.example.toml`). The cmux path is a pure move behind
+  the seam and unchanged in behaviour.
+- **Host identity and capabilities on the wire.** `GET /sessions` carries a
+  `host` block: `name` (short hostname), `kind` (`cmux`/`tmux`) and
+  `capabilities` (`tabs`, `feed`). Older agents leave it out and the app
+  assumes cmux with everything on.
+- **Multi-host in the app.** Pair any number of hosts ("Pair another
+  host…" from the sessions title or Connections) and switch between them;
+  the title shows the selected host's name and kind. Every pairing, e2e
+  session, credential and workspace order is stored per host, keyed by the
+  agent's identity key, so a machine's relay and Tailscale slots land under
+  one host. Existing pairings migrate in place on first launch. Push: the
+  FCM token is registered with every paired host, a notification names its
+  host and opens the app on it, and a push is decrypted by trying each
+  host's session. Connections shows one card per host; forgetting a host's
+  last slot removes it.
+- **Capability-gated UI and host-neutral copy.** "Add as tab" disappears
+  where the host has no tabs; the Inbox, YOLO mode and the pending-count
+  poll are hidden on hosts without a feed (tmux, until its Claude Code
+  hooks land). Every "Mac" in the app's copy now names the host ("Show on
+  home-server") or is neutral.
+
 ### Changed
 
 - **Renamed to Term Bridge.** With tmux hosts alongside cmux, the binaries,

@@ -12,6 +12,8 @@ tags:
 ---
 ## Summary
 
+> **Since 2026-09-14** the agent also fronts tmux on a Linux host and the app pairs with several hosts; where this write-up says "the Mac" or "the Mac agent", read "the host" -- see [overview](../overview.md) for the current shape.
+
 Four unrelated small-scope items grouped only by being minor app-polish or hardening work: a new app icon, a Settings-screen help link, a wire-compatibility policy note, and a security-relevant persistence fix for the e2e replay-counter store. Each stands on its own and is treated separately below. See [overview](../overview.md) and [pairing-e2e-encryption](./pairing-e2e-encryption.md) for how the e2e store fits the shipped security model.
 
 ## Body
