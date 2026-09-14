@@ -27,8 +27,11 @@ case "$*" in
   "list-panes -t @3 -F "*) cat "$D/panes-w3";;
   "list-sessions -F "*) cat "$D/sessions";;
   "display-message -p -t "*"#{start_time}") echo ` + epoch + `;;
+  "display-message -p -t "*"#{socket_path}"*"#{pane_current_path}") cat "$D/locate";;
   "display-message -p -t "*"#{pane_current_path}") echo /home/sodre90/prj;;
+  "capture-pane -p -J -t "*) cat "$D/screen";;
   "display-message -p -t "*"#{window_id}"*"#{window_height}") cat "$D/window-size";;
+
   "display-message -p -t %9 -F "*"; capture-pane"*) cat "$D/replay";;
   "display-message -p -t %404"*) echo "can't find pane: %404" >&2; exit 1;;
   "new-window "*|"new-session "*) cat "$D/created";;

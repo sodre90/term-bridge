@@ -33,8 +33,12 @@ var layoutNotifications = map[string]bool{
 // turns its structural notifications into layout frames until ctx ends.
 // A control client needs a session to attach to, so with none it waits
 // and retries; when its session dies it reattaches to another. Bursts
-// (a split renames, re-lays-out and adds in one go) are coalesced.
+// (a split renames, re-lays-out and adds in one go) are coalesced. With
+// the hook feed enabled its frames flow into the same sink.
 func (h *Host) RunEvents(ctx context.Context, sink func(wire.EventFrame)) {
+	if h.feed != nil {
+		go h.feed.Serve(ctx, h.hooks, sink)
+	}
 	b := backoff.New(time.Second, 30*time.Second)
 	for ctx.Err() == nil {
 		session, err := h.mostRecentSession(ctx)

@@ -9,11 +9,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/sodre90/term-bridge/internal/host"
+	"github.com/sodre90/term-bridge/internal/host/agentfeed"
 	"github.com/sodre90/term-bridge/internal/tmux"
 )
 
@@ -23,6 +25,10 @@ type Host struct {
 	// sizes remembers the windows this host has sized to a phone, so the
 	// size can be handed back once no phone is looking (see terminal.go).
 	sizes *windowSizes
+	// feed and hooks are the Claude Code hook feed and the socket it is
+	// served on, both nil until EnableFeed (see feed.go).
+	feed  *agentfeed.Feed
+	hooks net.Listener
 }
 
 // New wraps a tmux client. Call Run to start the resize janitor.
@@ -36,10 +42,10 @@ var _ host.Host = (*Host)(nil)
 
 func (h *Host) Kind() string { return host.KindTmux }
 
-// Capabilities: no tabs (a pane is its own surface) and, until the hook
-// feed lands, no structured prompts.
+// Capabilities: no tabs (a pane is its own surface); structured prompts
+// only with the hook feed enabled.
 func (h *Host) Capabilities() host.Capabilities {
-	return host.Capabilities{Tabs: false, Feed: false}
+	return host.Capabilities{Tabs: false, Feed: h.feed != nil}
 }
 
 // ValidID reports whether id is one of this host's window or pane ids.

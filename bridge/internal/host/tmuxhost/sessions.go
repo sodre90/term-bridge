@@ -102,7 +102,9 @@ func (h *Host) ListWorkspaces(ctx context.Context) ([]wire.Workspace, error) {
 	if err != nil {
 		return nil, err
 	}
-	return workspacesOf(rows), nil
+	workspaces := workspacesOf(rows)
+	h.applyFeedStatus(workspaces)
+	return workspaces, nil
 }
 
 func workspacesOf(rows []paneRow) []wire.Workspace {

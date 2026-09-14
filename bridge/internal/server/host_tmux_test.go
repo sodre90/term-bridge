@@ -2,8 +2,12 @@ package server
 
 import (
 	"encoding/json"
+	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -22,7 +26,7 @@ case "$*" in
 esac
 `
 
-func newTmuxTestServer(t *testing.T) (*Server, string) {
+func newTmuxTestServer(t *testing.T, setup ...func(*tmuxhost.Host)) (*Server, string) {
 	t.Helper()
 	store, err := auth.Open(t.TempDir() + "/d.db")
 	if err != nil {
@@ -31,6 +35,9 @@ func newTmuxTestServer(t *testing.T) (*Server, string) {
 	tenant, _ := store.CreateTenant()
 	tok, _ := store.Issue(tenant, "phone", "test-device-pubkey-b64")
 	h := tmuxhost.New(&tmux.Client{Bin: testutil.WriteFakeTmux(t, fakeTmuxOneWindow)})
+	for _, fn := range setup {
+		fn(h)
+	}
 	return NewWithHost(h, store), tok
 }
 
@@ -90,5 +97,38 @@ func TestTmuxHostAdvertisesItselfAndRefusesWhatItLacks(t *testing.T) {
 	_ = resp.Body.Close()
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("uuid on tmux = %d, want 400", resp.StatusCode)
+	}
+}
+
+func TestTmuxHostWithHookFeedAdvertisesFeedAndRefusesAGonePrompt(t *testing.T) {
+	dir, err := os.MkdirTemp("", "tb")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	ln, err := net.Listen("unix", filepath.Join(dir, "hooks.sock"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = ln.Close() })
+	s, tok := newTmuxTestServer(t, func(h *tmuxhost.Host) { h.EnableFeed(ln) })
+	srv := httptest.NewServer(s.Handler())
+	defer srv.Close()
+
+	resp := tmuxRequest(t, srv, tok, "GET", "/sessions", "")
+	var sessions wire.SessionsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&sessions); err != nil {
+		t.Fatal(err)
+	}
+	_ = resp.Body.Close()
+	if !sessions.Host.Capabilities.Feed {
+		t.Fatalf("host = %+v", sessions.Host)
+	}
+
+	resp = tmuxRequest(t, srv, tok, "POST", "/feed/toolu_gone/reply", `{"kind":"permissionRequest","request_id":"toolu_gone","params":{"mode":"once"}}`)
+	body, _ := io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusConflict || !strings.Contains(string(body), "prompt_gone") {
+		t.Fatalf("reply to a prompt the host is not holding = %d %s, want 409 prompt_gone", resp.StatusCode, body)
 	}
 }

@@ -30,7 +30,7 @@ type FeedReply struct {
 func (s *Server) handleFeedPending(w http.ResponseWriter, r *http.Request) {
 	body, err := s.host.PendingFeed(r.Context())
 	if err != nil {
-		httpjson.Error(w, http.StatusBadGateway, "cmux feed.list failed")
+		httpjson.Error(w, http.StatusBadGateway, "feed unavailable")
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -182,12 +182,15 @@ func (s *Server) handleFeedReply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	err := s.host.FeedReply(r.Context(), fr.Kind, fr.RequestID, fr.Params)
-	if errors.Is(err, host.ErrUnsupported) {
+	switch {
+	case errors.Is(err, host.ErrUnsupported):
 		httpjson.Error(w, http.StatusBadRequest, "unsupported on this host")
 		return
-	}
-	if err != nil {
-		httpjson.Error(w, http.StatusBadGateway, "cmux reply failed")
+	case errors.Is(err, host.ErrPromptGone):
+		httpjson.Error(w, http.StatusConflict, "prompt_gone")
+		return
+	case err != nil:
+		httpjson.Error(w, http.StatusBadGateway, "reply failed")
 		return
 	}
 	httpjson.Write(w, http.StatusOK, map[string]bool{"ok": true})
