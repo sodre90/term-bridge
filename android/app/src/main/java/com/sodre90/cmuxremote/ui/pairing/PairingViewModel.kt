@@ -84,7 +84,7 @@ class PairingViewModel(
     }
 
     /** Manual-entry fallback for when scanning isn't possible (no camera, or
-     *  pairing remotely): resolves the server URL + the code `cmux-bridge
+     *  pairing remotely): resolves the server URL + the code `term-bridge
      *  pair-device` also prints, into the same shape a scanned QR produces. */
     fun onManualEntrySubmitted(serverUrl: String, code: String) {
         if (_state.value !is PairingUiState.Scanning) return

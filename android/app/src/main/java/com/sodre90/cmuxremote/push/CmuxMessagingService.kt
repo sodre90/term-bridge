@@ -197,7 +197,7 @@ class CmuxMessagingService : FirebaseMessagingService() {
     }
 }
 
-internal const val GENERIC_TITLE = "cmux needs your attention"
+internal const val GENERIC_TITLE = "An agent needs your attention"
 internal const val GENERIC_BODY = "Open the app to see what's happening"
 
 /**
@@ -209,7 +209,7 @@ internal const val GENERIC_BODY = "Open the app to see what's happening"
  * last is what the user is left looking at. So a copy that could not be
  * decrypted -- one whose sender had no session for this device, or one
  * encrypted for a session this device has since replaced -- would otherwise
- * overwrite the copy that decrypted fine with "cmux needs your attention"
+ * overwrite the copy that decrypted fine with "An agent needs your attention"
  * (cmux-app-17r).
  *
  * Only this direction is guarded. Real content arriving after the fallback

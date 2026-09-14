@@ -154,7 +154,7 @@ fun PairingScreen(vm: PairingViewModel, title: String, onPaired: () -> Unit) {
 
 /** Fallback pairing path for when scanning isn't possible (no camera, or
  *  pairing remotely, e.g. over SSH): the server URL and the pairing code
- *  `cmux-bridge pair-device` also prints alongside the QR are enough to
+ *  `term-bridge pair-device` also prints alongside the QR are enough to
  *  complete the same handshake (see PairingClient.resolveManualCode). */
 @Composable
 private fun ManualEntryForm(onSubmit: (serverUrl: String, code: String) -> Unit, onScanInstead: () -> Unit) {

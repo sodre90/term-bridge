@@ -7,7 +7,7 @@ import java.security.MessageDigest
  * Identifies one paired agent across both of its [ConnectionSlot]s: the hex
  * of the first 16 bytes of SHA-256 over the agent's X25519 identity key. The
  * agent uses one identity for relay and direct pairing alike
- * (bridge/cmd/cmux-bridge/pair.go loads a single identity_key), so the two
+ * (bridge/cmd/term-bridge/pair.go loads a single identity_key), so the two
  * slots of one machine land under one id, and two machines never collide.
  *
  * Derived from the agent key alone -- unlike the SAS fingerprint, which mixes

@@ -6,8 +6,8 @@ import kotlinx.serialization.Serializable
 import java.net.URI
 import java.time.Instant
 
-/** The JSON payload rendered into the pairing QR by `cmux-bridge pair-device`
- *  (bridge/cmd/cmux-bridge/pair.go's pairingQR struct). */
+/** The JSON payload rendered into the pairing QR by `term-bridge pair-device`
+ *  (bridge/cmd/term-bridge/pair.go's pairingQR struct). */
 @Serializable
 data class PairingQr(
     @SerialName("pair_url") val pairUrl: String = "",
@@ -19,7 +19,7 @@ data class PairingQr(
 
 /** Returns null for anything that isn't a valid pairing QR -- malformed
  *  JSON, JSON missing the fields this flow actually needs, or a [pairUrl]
- *  that doesn't look like one cmux-bridge's own pair-device flow would ever
+ *  that doesn't look like one term-bridge's own pair-device flow would ever
  *  emit (see [hasSafePairUrl]). The camera scanner resumes scanning on null
  *  rather than crashing (a scanned code may simply be unrelated to cmux, or
  *  -- since this is arbitrary attacker-controlled input -- an attempt to
@@ -37,7 +37,7 @@ fun parsePairingQr(raw: String): PairingQr? {
 
 /**
  * Requires an `https://` scheme with no userinfo (`user:pass@host`) and a
- * non-blank host -- the exact shape bridge/cmd/cmux-bridge/pair.go always
+ * non-blank host -- the exact shape bridge/cmd/term-bridge/pair.go always
  * produces for `pair_url`. A scanned QR is untrusted input; without this,
  * a malicious QR could point the pairing POST (and the base URL later
  * derived from it, see PairingClient.baseUrlFromPairUrl) at an

@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">cmux remote</string>
+    <string name="app_name">Term Bridge</string>
 
     <!-- Shared actions, reused verbatim across multiple screens. -->
     <string name="action_back">Back</string>
@@ -116,20 +116,20 @@
     <string name="pairing_enter_manually">Enter server URL and code manually</string>
     <string name="pairing_in_progress">Pairing...</string>
     <string name="pairing_scan_again">Scan again</string>
-    <string name="pairing_manual_intro">Enter the server URL and pairing code shown by `cmux-bridge pair-device` on the host.</string>
+    <string name="pairing_manual_intro">Enter the server URL and pairing code shown by `term-bridge pair-device` on the host.</string>
     <string name="pairing_server_url_label">Server URL</string>
     <string name="pairing_server_url_placeholder">https://cmux.example.com</string>
     <string name="pairing_code_label">Pairing code</string>
     <string name="pairing_scan_qr_instead">Scan QR code instead</string>
     <string name="pairing_confirm_fingerprint_title">Verify this code matches the host</string>
-    <string name="pairing_confirm_fingerprint_body">Compare this code against the one `cmux-bridge pair-device` printed on the host. Only confirm if they match exactly -- this check is what stops a compromised relay from silently swapping in its own keys.</string>
+    <string name="pairing_confirm_fingerprint_body">Compare this code against the one `term-bridge pair-device` printed on the host. Only confirm if they match exactly -- this check is what stops a compromised relay from silently swapping in its own keys.</string>
     <string name="pairing_success_title">Paired</string>
-    <string name="pairing_success_body">One more check: this should be the same code you just confirmed, and the same one printed by `cmux-bridge pair-device` on the host.</string>
+    <string name="pairing_success_body">One more check: this should be the same code you just confirmed, and the same one printed by `term-bridge pair-device` on the host.</string>
 
     <!-- Connection settings screen -->
     <string name="connections_title">Connections</string>
     <string name="connections_pair_another_host">Pair another host</string>
-    <string name="connections_pair_another_host_help">Scan the QR code a second machine\'s `cmux-bridge pair-device` prints. Each host keeps its own pairings; switch between them from the sessions screen.</string>
+    <string name="connections_pair_another_host_help">Scan the QR code a second machine\'s `term-bridge pair-device` prints. Each host keeps its own pairings; switch between them from the sessions screen.</string>
     <string name="connection_slot_relay">Relay</string>
     <string name="connection_slot_direct">Tailscale (direct)</string>
     <string name="connection_relay_description">Reaches the host from anywhere, via the home server.</string>
@@ -138,7 +138,7 @@
     <string name="connection_status_not_paired">Not paired</string>
     <string name="connection_status_rejected">Rejected — needs re-pairing</string>
     <string name="connection_recovery_relay">The relay no longer recognises this device. Tap Re-pair and scan a new code.</string>
-    <string name="connection_recovery_direct">The host no longer recognises this device over Tailscale. Run `cmux-bridge pair-device -direct` there, then tap Re-pair.</string>
+    <string name="connection_recovery_direct">The host no longer recognises this device over Tailscale. Run `term-bridge pair-device -direct` there, then tap Re-pair.</string>
     <string name="action_repair">Re-pair</string>
     <string name="action_forget">Forget</string>
     <string name="forget_connection_dialog_title">Forget %1$s connection?</string>
@@ -158,7 +158,7 @@
     <string name="terminal_font_size_reset">Reset to fit</string>
     <string name="terminal_font_size_help">100% fits the terminal\'s full width on screen; higher zooms in. Pinching inside a terminal changes the same setting.</string>
     <string name="connections_intro_title">Connect this phone to a host</string>
-    <string name="connections_intro_body">Run “cmux-bridge agent” on the machine you want to reach, then pair below by scanning the QR code it prints.\n\nStart with Relay: it reaches the host from anywhere. Tailscale is an optional second route for when both are on the same network — pair it too and the app falls back to it on its own.</string>
+    <string name="connections_intro_body">Run “term-bridge agent” on the machine you want to reach, then pair below by scanning the QR code it prints.\n\nStart with Relay: it reaches the host from anywhere. Tailscale is an optional second route for when both are on the same network — pair it too and the app falls back to it on its own.</string>
     <string name="terminal_font_size_decrease">Decrease terminal font size</string>
     <string name="terminal_font_size_increase">Increase terminal font size</string>
 
@@ -172,7 +172,7 @@
     <!-- Rejected-credential notification -->
     <string name="credential_rejected_title">%1$s connection to %2$s needs re-pairing</string>
     <string name="credential_rejected_body_relay">The relay no longer recognises this device. Open Connections and re-pair it before the other connection is all you have left.</string>
-    <string name="credential_rejected_body_direct">The host no longer recognises this device over Tailscale. Run `cmux-bridge pair-device -direct` there and re-pair, before the relay is all you have left.</string>
+    <string name="credential_rejected_body_direct">The host no longer recognises this device over Tailscale. Run `term-bridge pair-device -direct` there and re-pair, before the relay is all you have left.</string>
 
     <!-- Terminal screen -->
     <string name="terminal_title">Terminal</string>
@@ -277,7 +277,7 @@
     <string name="pairing_awaiting_operator_title">Waiting for the host to confirm</string>
     <string name="pairing_awaiting_operator_body">Check that this code matches the one on the host, then answer y there. Nothing is saved until you do.</string>
     <string name="error_pairing_refused">The host declined this pairing -- start again if the codes really did match.</string>
-    <string name="error_pairing_not_answered">Nobody answered on the host -- check that cmux-bridge pair-device is still running.</string>
+    <string name="error_pairing_not_answered">Nobody answered on the host -- check that term-bridge pair-device is still running.</string>
     <string name="about_title">About</string>
     <string name="about_app_version">App</string>
     <string name="about_bridge_version">Bridge (host agent)</string>

@@ -163,7 +163,7 @@ internal class PairingKeys(
  * phone's e2e public key alongside the scanned code, and on success derives
  * the shared secret via ECDH and persists everything -- bearer token + base
  * URL into Settings, e2e session into CryptoSession. Mirrors
- * bridge/cmd/cmux-bridge/pair.go's agent-side half of the same handshake.
+ * bridge/cmd/term-bridge/pair.go's agent-side half of the same handshake.
  *
  * [prepare]/[commit] are split (rather than one atomic call) so the UI can
  * show a fingerprint confirmation screen between them -- see
@@ -405,6 +405,6 @@ private fun fetchPairStatus(http: OkHttpClient, baseUrl: String, code: String): 
 }
 
 /** "https://host/devices/pair" -> "https://host" -- the same main vhost the
- *  bridge's other endpoints live on (bridge/cmd/cmux-bridge/pair.go derives
+ *  bridge's other endpoints live on (bridge/cmd/term-bridge/pair.go derives
  *  the QR's pair_url this same way, in reverse). */
 private fun baseUrlFromPairUrl(pairUrl: String): String = pairUrl.removeSuffix("/devices/pair")

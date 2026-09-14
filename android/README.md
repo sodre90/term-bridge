@@ -1,6 +1,6 @@
-# cmux remote (Android)
+# Term Bridge (Android)
 
-A native Android client for [`cmux-bridge`](../bridge). It connects to the bridge
+A native Android client for [`term-bridge`](../bridge). It connects to the bridge
 **behind your mTLS nginx edge** to list cmux sessions, drive a live terminal, and
 answer agent prompts — with optional FCM push when an agent needs your attention.
 
@@ -20,7 +20,7 @@ pairing), so the relay can route traffic but not read it.
 - JDK 21+. App code targets JVM 17, but a test-only dependency
   (`lazysodium-java`) ships Java 21 class files, so `testDebugUnitTest` needs a
   21+ runtime.
-- A running `cmux-bridge` reachable through your nginx mTLS edge — see
+- A running `term-bridge` reachable through your nginx mTLS edge — see
   [`bridge/README.md`](../bridge/README.md). The phone must be able to reach that
   DNS name (over the internet or your LAN).
 
@@ -46,7 +46,7 @@ On the Mac, with the agent running (see
 [`bridge/README.md` → Agent](../bridge/README.md#agent-mac)):
 
 ```bash
-cmux-bridge pair-device --config ~/.config/cmux-bridge/agent.toml
+term-bridge pair-device --config ~/.config/term-bridge/agent.toml
 ```
 
 This prints a QR code and, alongside it, a short code for manual entry.

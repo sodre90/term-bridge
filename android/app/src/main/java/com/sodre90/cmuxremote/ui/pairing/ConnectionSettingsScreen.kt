@@ -327,7 +327,7 @@ private fun ConnectionRowRejectedPreview() {
             description = "Reaches the host directly over your tailnet.",
             configured = true,
             credentialStatus = CredentialStatus.REJECTED,
-            recoveryHint = "Run `cmux-bridge pair-device -direct` there, then tap Re-pair.",
+            recoveryHint = "Run `term-bridge pair-device -direct` there, then tap Re-pair.",
             onPair = {},
             onForget = {},
         )
