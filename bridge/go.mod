@@ -1,4 +1,4 @@
-module github.com/sodre90/cmux-bridge
+module github.com/sodre90/term-bridge
 
 go 1.26.4
 

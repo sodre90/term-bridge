@@ -10,14 +10,14 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/sodre90/cmux-bridge/internal/auth"
-	"github.com/sodre90/cmux-bridge/internal/cmux"
-	"github.com/sodre90/cmux-bridge/internal/e2e"
-	"github.com/sodre90/cmux-bridge/internal/host"
-	"github.com/sodre90/cmux-bridge/internal/host/cmuxhost"
-	"github.com/sodre90/cmux-bridge/internal/ratelimit"
-	"github.com/sodre90/cmux-bridge/internal/wire"
-	"github.com/sodre90/cmux-bridge/internal/yolo"
+	"github.com/sodre90/term-bridge/internal/auth"
+	"github.com/sodre90/term-bridge/internal/cmux"
+	"github.com/sodre90/term-bridge/internal/e2e"
+	"github.com/sodre90/term-bridge/internal/host"
+	"github.com/sodre90/term-bridge/internal/host/cmuxhost"
+	"github.com/sodre90/term-bridge/internal/ratelimit"
+	"github.com/sodre90/term-bridge/internal/wire"
+	"github.com/sodre90/term-bridge/internal/yolo"
 )
 
 // Server holds the dependencies shared by all handlers.
@@ -48,7 +48,7 @@ type Server struct {
 	directTenantID string
 	// lastEventAt is UnixNano of the last frame ingestEvents processed off
 	// the `cmux events --reconnect` stream (0 means "none yet"), read by
-	// LastEventAt for the cmux-bridge status subcommand.
+	// LastEventAt for the term-bridge status subcommand.
 	lastEventAt atomic.Int64
 	// testPushCooldown bounds how often a single direct-mode device may
 	// trigger handleTestPushDevice (see test_push.go) -- defense-in-depth

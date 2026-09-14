@@ -4,8 +4,8 @@ import (
 	"context"
 	"io"
 
-	"github.com/sodre90/cmux-bridge/internal/host/cmuxhost"
-	"github.com/sodre90/cmux-bridge/internal/wire"
+	"github.com/sodre90/term-bridge/internal/host/cmuxhost"
+	"github.com/sodre90/term-bridge/internal/wire"
 )
 
 // ingestEvents drives the server with raw cmux NDJSON, the way the

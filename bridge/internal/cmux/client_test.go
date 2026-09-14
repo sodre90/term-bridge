@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sodre90/cmux-bridge/internal/testutil"
+	"github.com/sodre90/term-bridge/internal/testutil"
 )
 
 func TestRpcReturnsStdoutJSON(t *testing.T) {

@@ -14,7 +14,7 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/sodre90/cmux-bridge/internal/wire"
+	"github.com/sodre90/term-bridge/internal/wire"
 )
 
 // ErrUnsupported is returned by an operation the backend has no analog for

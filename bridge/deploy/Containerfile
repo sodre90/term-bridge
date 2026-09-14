@@ -22,8 +22,8 @@ COPY . .
 # to tell what is deployed (cmux-app-xsw).
 ARG VERSION=
 RUN CGO_ENABLED=0 go build -trimpath \
-      -ldflags="-s -w ${VERSION:+-X github.com/sodre90/cmux-bridge/internal/version.v=$VERSION}" \
-      -o /out/cmux-relay ./cmd/cmux-relay
+      -ldflags="-s -w ${VERSION:+-X github.com/sodre90/term-bridge/internal/version.v=$VERSION}" \
+      -o /out/cmux-relay ./cmd/term-bridge-relay
 
 # ---- runtime -----------------------------------------------------------------
 FROM alpine:3.20

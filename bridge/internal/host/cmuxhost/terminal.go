@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/sodre90/cmux-bridge/internal/host"
+	"github.com/sodre90/term-bridge/internal/host"
 )
 
 // Replay is mobile.terminal.replay: the whole render grid of one surface.

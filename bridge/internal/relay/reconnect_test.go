@@ -9,7 +9,7 @@ import (
 
 	"github.com/hashicorp/yamux"
 
-	"github.com/sodre90/cmux-bridge/internal/auth"
+	"github.com/sodre90/term-bridge/internal/auth"
 )
 
 // TestReconnectSwapsRegistryWhileRequestInFlight exercises an agent

@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sodre90/cmux-bridge/internal/auth"
-	"github.com/sodre90/cmux-bridge/internal/devices"
-	"github.com/sodre90/cmux-bridge/internal/pairing"
-	"github.com/sodre90/cmux-bridge/internal/wire"
+	"github.com/sodre90/term-bridge/internal/auth"
+	"github.com/sodre90/term-bridge/internal/devices"
+	"github.com/sodre90/term-bridge/internal/pairing"
+	"github.com/sodre90/term-bridge/internal/wire"
 )
 
 const testPubkey = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="

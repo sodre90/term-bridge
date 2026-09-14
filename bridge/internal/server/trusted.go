@@ -4,7 +4,7 @@ import (
 	"crypto/subtle"
 	"net/http"
 
-	"github.com/sodre90/cmux-bridge/internal/auth"
+	"github.com/sodre90/term-bridge/internal/auth"
 )
 
 // RequireRelayToken gates a handler behind a static shared token sent by the

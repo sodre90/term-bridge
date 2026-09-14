@@ -3,9 +3,9 @@ package server
 import (
 	"net/http"
 
-	"github.com/sodre90/cmux-bridge/internal/httpjson"
-	"github.com/sodre90/cmux-bridge/internal/version"
-	"github.com/sodre90/cmux-bridge/internal/wire"
+	"github.com/sodre90/term-bridge/internal/httpjson"
+	"github.com/sodre90/term-bridge/internal/version"
+	"github.com/sodre90/term-bridge/internal/wire"
 )
 
 // handleVersion answers with the running agent's version.

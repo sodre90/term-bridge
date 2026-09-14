@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sodre90/cmux-bridge/internal/auth"
+	"github.com/sodre90/term-bridge/internal/auth"
 )
 
 // How long a socket belonging to a revoked device may keep streaming. The
@@ -84,7 +84,7 @@ func (t *ConnTracker) CloseRevoked(live map[string]string, tenantActive func(str
 
 // SweepRevoked re-runs the proxy's connect-time check against every live
 // connection on a timer, which is what lets an out-of-process revocation --
-// `cmux-relay devices revoke`, or anything else that edits the store -- take
+// `term-bridge-relay devices revoke`, or anything else that edits the store -- take
 // effect on connections that are already open.
 func (t *ConnTracker) SweepRevoked(ctx context.Context, store *auth.Store, period time.Duration) {
 	ticker := time.NewTicker(period)

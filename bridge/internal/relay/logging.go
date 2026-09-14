@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sodre90/cmux-bridge/internal/auth"
+	"github.com/sodre90/term-bridge/internal/auth"
 )
 
 // logProxy wraps the app-facing proxy with a concise per-request access log:

@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sodre90/cmux-bridge/internal/auth"
+	"github.com/sodre90/term-bridge/internal/auth"
 )
 
 func writeSelfSigned(t *testing.T) (certPath, keyPath string) {

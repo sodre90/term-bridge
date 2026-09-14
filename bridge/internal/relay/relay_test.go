@@ -16,12 +16,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sodre90/cmux-bridge/internal/auth"
-	"github.com/sodre90/cmux-bridge/internal/ca"
-	"github.com/sodre90/cmux-bridge/internal/cmux"
-	"github.com/sodre90/cmux-bridge/internal/server"
-	"github.com/sodre90/cmux-bridge/internal/testutil"
-	"github.com/sodre90/cmux-bridge/internal/tunnel"
+	"github.com/sodre90/term-bridge/internal/auth"
+	"github.com/sodre90/term-bridge/internal/ca"
+	"github.com/sodre90/term-bridge/internal/cmux"
+	"github.com/sodre90/term-bridge/internal/server"
+	"github.com/sodre90/term-bridge/internal/testutil"
+	"github.com/sodre90/term-bridge/internal/tunnel"
 )
 
 func generateTestCSR(t *testing.T, cn string) []byte {

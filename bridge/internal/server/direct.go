@@ -3,8 +3,8 @@ package server
 import (
 	"net/http"
 
-	"github.com/sodre90/cmux-bridge/internal/auth"
-	"github.com/sodre90/cmux-bridge/internal/devices"
+	"github.com/sodre90/term-bridge/internal/auth"
+	"github.com/sodre90/term-bridge/internal/devices"
 )
 
 // injectDeviceID copies the bearer-token-verified Device's TokenHash (set by

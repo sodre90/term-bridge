@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"path/filepath"
 
-	"github.com/sodre90/cmux-bridge/internal/httpjson"
-	"github.com/sodre90/cmux-bridge/internal/wire"
-	"github.com/sodre90/cmux-bridge/internal/yolo"
+	"github.com/sodre90/term-bridge/internal/httpjson"
+	"github.com/sodre90/term-bridge/internal/wire"
+	"github.com/sodre90/term-bridge/internal/yolo"
 )
 
 type setYoloModeRequest struct {

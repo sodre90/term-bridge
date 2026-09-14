@@ -9,12 +9,12 @@ import (
 	"slices"
 	"time"
 
-	"github.com/sodre90/cmux-bridge/internal/config"
-	"github.com/sodre90/cmux-bridge/internal/status"
+	"github.com/sodre90/term-bridge/internal/config"
+	"github.com/sodre90/term-bridge/internal/status"
 )
 
-// runStatus implements `cmux-bridge status`: read the snapshot the running
-// `cmux-bridge agent` process last wrote (internal/status) and print a
+// runStatus implements `term-bridge status`: read the snapshot the running
+// `term-bridge agent` process last wrote (internal/status) and print a
 // human-readable summary. It never talks to the agent process directly --
 // see internal/status's package doc for why a status file was chosen over a
 // live query.
@@ -31,7 +31,7 @@ func runStatus(args []string) int {
 	}
 	snap, err := status.Read(cfg.StatusFile)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "no status available at %s (%v) -- is `cmux-bridge agent` running?\n", cfg.StatusFile, err)
+		fmt.Fprintf(os.Stderr, "no status available at %s (%v) -- is `term-bridge agent` running?\n", cfg.StatusFile, err)
 		return 1
 	}
 	printStatus(os.Stdout, snap)

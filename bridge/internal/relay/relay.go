@@ -16,14 +16,14 @@ import (
 
 	"github.com/hashicorp/yamux"
 
-	"github.com/sodre90/cmux-bridge/internal/auth"
-	"github.com/sodre90/cmux-bridge/internal/ca"
-	"github.com/sodre90/cmux-bridge/internal/devices"
-	"github.com/sodre90/cmux-bridge/internal/httpjson"
-	"github.com/sodre90/cmux-bridge/internal/pairing"
-	"github.com/sodre90/cmux-bridge/internal/ratelimit"
-	"github.com/sodre90/cmux-bridge/internal/tunnel"
-	"github.com/sodre90/cmux-bridge/internal/wire"
+	"github.com/sodre90/term-bridge/internal/auth"
+	"github.com/sodre90/term-bridge/internal/ca"
+	"github.com/sodre90/term-bridge/internal/devices"
+	"github.com/sodre90/term-bridge/internal/httpjson"
+	"github.com/sodre90/term-bridge/internal/pairing"
+	"github.com/sodre90/term-bridge/internal/ratelimit"
+	"github.com/sodre90/term-bridge/internal/tunnel"
+	"github.com/sodre90/term-bridge/internal/wire"
 )
 
 // agentCNPrefix marks a client cert as belonging to a Mac agent, followed by
@@ -42,7 +42,7 @@ const defaultMaxTenants = 1000
 
 // tenantRegisterMinInterval bounds how often a single source IP may hit
 // /tenants/register. Defense-in-depth alongside nginx's own limit_req zone
-// (deploy/nginx-cmux-relay-bootstrap.conf) -- this endpoint is reachable with
+// (deploy/nginx-term-bridge-relay-bootstrap.conf) -- this endpoint is reachable with
 // no client cert by design, so both layers matter.
 const tenantRegisterMinInterval = 10 * time.Second
 
@@ -75,7 +75,7 @@ type Relay struct {
 	registerLimiter   *ipRateLimiter
 	devicePairLimiter *ipRateLimiter
 	maxTenants        int
-	// push is nil unless SetPusher is called (only by cmux-relay serve's
+	// push is nil unless SetPusher is called (only by term-bridge-relay serve's
 	// production wiring, and only when FCM config is present). Nil means
 	// POST /devices/test-push (testpush.go) reports 503 push_not_configured;
 	// real attention-event fanout (pushmon.go's MonitorAgent) takes its own
@@ -110,7 +110,7 @@ func New(store *auth.Store, signer *ca.CA, relayToken string) *Relay {
 // SetPusher enables POST /devices/test-push (testpush.go). Independent of
 // SetSessionHook's pushmon wiring, which fans real attention events out to
 // every device on a tenant; both share the same Pusher instance in
-// production (cmd/cmux-relay/serve.go) but are wired separately since a test
+// production (cmd/term-bridge-relay/serve.go) but are wired separately since a test
 // push is deliberately scoped to the one calling device, never a tenant-wide
 // fanout.
 func (r *Relay) SetPusher(p Pusher) { r.push = p }
@@ -165,7 +165,7 @@ func (r *Relay) clientIP(req *http.Request) string {
 }
 
 // SetFCMClientConfig sets the client-side Firebase config this relay hands a
-// phone at pairing. Called only by cmux-relay serve's production wiring, and
+// phone at pairing. Called only by term-bridge-relay serve's production wiring, and
 // only when all four client fields are configured; left unset, pairing
 // responses omit the block entirely.
 func (r *Relay) SetFCMClientConfig(c wire.FCMClientConfig) { r.fcm = c }
@@ -233,7 +233,7 @@ func (r *Relay) agentOnly(req *http.Request) (string, bool) {
 // that reached the relay had already presented a cert chaining to the
 // trusted CA, or the TLS handshake would have failed before the request
 // ever arrived. Now that ssl_verify_client is optional (see
-// deploy/nginx-cmux-relay.conf, changed below in this same task, to let
+// deploy/nginx-term-bridge-relay.conf, changed below in this same task, to let
 // certless paired devices connect), nginx forwards X-Client-Cert-CN for ANY
 // presented certificate -- including a trivial self-signed one with
 // CN=agent:<any-tenant-id> -- so a bare CN match is no longer proof of agent
@@ -265,7 +265,7 @@ func (r *Relay) Handler() http.Handler {
 	// Self-service pairing routes (internal/pairing). The issue/status
 	// routes are agent-CN-gated via agentOnly; /devices/pair and
 	// /devices/pair-info are public by design -- a brand-new phone has no
-	// cert to present yet (see deploy/nginx-cmux-relay.conf's optional
+	// cert to present yet (see deploy/nginx-term-bridge-relay.conf's optional
 	// ssl_verify_client), mirroring handleRegisterTenant's bootstrap story
 	// for agents. /devices/pair additionally gets the same per-IP throttle
 	// as /tenants/register, since it's equally reachable with no credential.
@@ -387,7 +387,7 @@ type registerTenantResp struct {
 
 // handleRegisterTenant mints a brand-new tenant identity for a Mac agent that
 // has none yet. Reachable without a client cert by design (see
-// deploy/nginx-cmux-relay-bootstrap.conf) — an unregistered agent has no cert
+// deploy/nginx-term-bridge-relay-bootstrap.conf) — an unregistered agent has no cert
 // to present. Rate limiting / abuse resistance is a known, tracked gap (see
 // the design doc's non-goals) — this handler does only basic input hygiene.
 func (r *Relay) handleRegisterTenant(w http.ResponseWriter, req *http.Request) {

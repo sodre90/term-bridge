@@ -13,10 +13,10 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"github.com/sodre90/cmux-bridge/internal/cmux"
-	"github.com/sodre90/cmux-bridge/internal/e2e"
-	"github.com/sodre90/cmux-bridge/internal/testutil"
-	"github.com/sodre90/cmux-bridge/internal/wire"
+	"github.com/sodre90/term-bridge/internal/cmux"
+	"github.com/sodre90/term-bridge/internal/e2e"
+	"github.com/sodre90/term-bridge/internal/testutil"
+	"github.com/sodre90/term-bridge/internal/wire"
 )
 
 // attachOverPlaintextSocket opens a terminal socket on a server with an

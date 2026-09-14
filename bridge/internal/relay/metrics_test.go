@@ -8,12 +8,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sodre90/cmux-bridge/internal/auth"
-	"github.com/sodre90/cmux-bridge/internal/cmux"
-	"github.com/sodre90/cmux-bridge/internal/metrics"
-	"github.com/sodre90/cmux-bridge/internal/server"
-	"github.com/sodre90/cmux-bridge/internal/testutil"
-	"github.com/sodre90/cmux-bridge/internal/tunnel"
+	"github.com/sodre90/term-bridge/internal/auth"
+	"github.com/sodre90/term-bridge/internal/cmux"
+	"github.com/sodre90/term-bridge/internal/metrics"
+	"github.com/sodre90/term-bridge/internal/server"
+	"github.com/sodre90/term-bridge/internal/testutil"
+	"github.com/sodre90/term-bridge/internal/tunnel"
 )
 
 // expvarIntValue reads an expvar.Map entry as an *expvar.Int, defaulting to 0

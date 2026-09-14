@@ -16,7 +16,7 @@ func restoreDefaultLogger(t *testing.T) {
 
 func TestTheAgentWritesItsOwnLogFile(t *testing.T) {
 	restoreDefaultLogger(t)
-	path := filepath.Join(t.TempDir(), "cmux-bridge.log")
+	path := filepath.Join(t.TempDir(), "term-bridge.log")
 
 	if err := UseRotatingFile(path); err != nil {
 		t.Fatalf("UseRotatingFile: %v", err)
@@ -36,7 +36,7 @@ func TestTheAgentWritesItsOwnLogFile(t *testing.T) {
 // exist yet.
 func TestAMissingLogDirectoryIsCreated(t *testing.T) {
 	restoreDefaultLogger(t)
-	path := filepath.Join(t.TempDir(), "Library", "Logs", "cmux-bridge.log")
+	path := filepath.Join(t.TempDir(), "Library", "Logs", "term-bridge.log")
 
 	if err := UseRotatingFile(path); err != nil {
 		t.Fatalf("UseRotatingFile: %v", err)
@@ -67,7 +67,7 @@ func TestAnEmptyPathLeavesTheLoggerAlone(t *testing.T) {
 func TestTheLogFileIsBounded(t *testing.T) {
 	restoreDefaultLogger(t)
 	dir := t.TempDir()
-	path := filepath.Join(dir, "cmux-bridge.log")
+	path := filepath.Join(dir, "term-bridge.log")
 	if err := UseRotatingFile(path); err != nil {
 		t.Fatalf("UseRotatingFile: %v", err)
 	}

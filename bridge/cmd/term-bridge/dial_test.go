@@ -11,7 +11,7 @@ import (
 
 	"github.com/hashicorp/yamux"
 
-	"github.com/sodre90/cmux-bridge/internal/tunnel"
+	"github.com/sodre90/term-bridge/internal/tunnel"
 )
 
 // tunnelAcceptServer starts an httptest.Server that upgrades every request to

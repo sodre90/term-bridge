@@ -13,9 +13,9 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/hashicorp/yamux"
 
-	"github.com/sodre90/cmux-bridge/internal/auth"
-	pushpkg "github.com/sodre90/cmux-bridge/internal/push"
-	"github.com/sodre90/cmux-bridge/internal/wire"
+	"github.com/sodre90/term-bridge/internal/auth"
+	pushpkg "github.com/sodre90/term-bridge/internal/push"
+	"github.com/sodre90/term-bridge/internal/wire"
 )
 
 type fakePusher struct {

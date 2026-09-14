@@ -13,9 +13,9 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/sodre90/cmux-bridge/internal/config"
-	"github.com/sodre90/cmux-bridge/internal/e2e"
-	"github.com/sodre90/cmux-bridge/internal/wire"
+	"github.com/sodre90/term-bridge/internal/config"
+	"github.com/sodre90/term-bridge/internal/e2e"
+	"github.com/sodre90/term-bridge/internal/wire"
 )
 
 // deviceAdminTimeout bounds a single device-admin HTTP call. These are small
@@ -269,7 +269,7 @@ func olderThan(createdAt string, now time.Time, age time.Duration) bool {
 //     (cmux-app-2vz).
 //
 // Together they are what makes revocation converge from any direction: a
-// device revoked through the phone's Forget, through `cmux-relay devices
+// device revoked through the phone's Forget, through `term-bridge-relay devices
 // revoke`, or by an operator here all end the same way instead of leaving the
 // two stores to drift apart (cmux-app-vkq).
 //
@@ -365,7 +365,7 @@ func describeRevocation(source string, existed, secretRemoved bool) string {
 	return served + ", no local secret held"
 }
 
-// runDevices implements `cmux-bridge devices`, the operator's view of who is
+// runDevices implements `term-bridge devices`, the operator's view of who is
 // paired and the only way to take a pairing back. Both subcommands act
 // across every configured server, so the operator never has to know which
 // slot a phone was paired through.
@@ -423,6 +423,6 @@ func runDevices(args []string) int {
 }
 
 func devicesUsage() {
-	fmt.Fprintln(os.Stderr, "usage: cmux-bridge devices list [flags]")
-	fmt.Fprintln(os.Stderr, "       cmux-bridge devices revoke <device-prefix> [flags]")
+	fmt.Fprintln(os.Stderr, "usage: term-bridge devices list [flags]")
+	fmt.Fprintln(os.Stderr, "       term-bridge devices revoke <device-prefix> [flags]")
 }

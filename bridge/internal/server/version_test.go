@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sodre90/cmux-bridge/internal/version"
-	"github.com/sodre90/cmux-bridge/internal/wire"
+	"github.com/sodre90/term-bridge/internal/version"
+	"github.com/sodre90/term-bridge/internal/wire"
 )
 
 func TestVersionReportsTheRunningBuild(t *testing.T) {

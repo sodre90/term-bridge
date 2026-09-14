@@ -32,7 +32,7 @@ type AgentConfig struct {
 	// once, on first run, when ClientCert/ClientKey/CACert don't exist yet.
 	BootstrapURL string `toml:"bootstrap_url"`
 	// IdentityKey is the path to this agent's X25519 e2e identity private key
-	// (internal/e2e.Identity), created on first use by `cmux-bridge
+	// (internal/e2e.Identity), created on first use by `term-bridge
 	// pair-device`.
 	IdentityKey string `toml:"identity_key"`
 	// SessionStore is the path to the SQLite database holding this agent's
@@ -66,7 +66,7 @@ type AgentConfig struct {
 	// direct-mode push. Empty disables it.
 	FCMCredentials string `toml:"fcm_credentials"`
 	// StatusFile is the path to the small JSON health snapshot this agent
-	// writes periodically (see internal/status), read by `cmux-bridge
+	// writes periodically (see internal/status), read by `term-bridge
 	// status`.
 	StatusFile string `toml:"status_file"`
 	// FCMAppID, FCMAPIKey and FCMSenderID are the client half of the

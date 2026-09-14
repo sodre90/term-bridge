@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"net/http/httputil"
 
-	"github.com/sodre90/cmux-bridge/internal/auth"
-	"github.com/sodre90/cmux-bridge/internal/httpjson"
-	"github.com/sodre90/cmux-bridge/internal/metrics"
+	"github.com/sodre90/term-bridge/internal/auth"
+	"github.com/sodre90/term-bridge/internal/httpjson"
+	"github.com/sodre90/term-bridge/internal/metrics"
 )
 
 // ErrAgentOffline is returned by the proxy transport when the target

@@ -10,11 +10,11 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/hashicorp/yamux"
 
-	"github.com/sodre90/cmux-bridge/internal/auth"
-	"github.com/sodre90/cmux-bridge/internal/backoff"
-	"github.com/sodre90/cmux-bridge/internal/metrics"
-	pushpkg "github.com/sodre90/cmux-bridge/internal/push"
-	"github.com/sodre90/cmux-bridge/internal/wire"
+	"github.com/sodre90/term-bridge/internal/auth"
+	"github.com/sodre90/term-bridge/internal/backoff"
+	"github.com/sodre90/term-bridge/internal/metrics"
+	pushpkg "github.com/sodre90/term-bridge/internal/push"
+	"github.com/sodre90/term-bridge/internal/wire"
 )
 
 // Pusher delivers an attention push to a single device token. push.Sender

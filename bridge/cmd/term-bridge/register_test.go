@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/sodre90/cmux-bridge/internal/config"
+	"github.com/sodre90/term-bridge/internal/config"
 )
 
 func TestEnsureRegisteredCallsBootstrapAndWritesFiles(t *testing.T) {

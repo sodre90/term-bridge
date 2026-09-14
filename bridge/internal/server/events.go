@@ -9,8 +9,8 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"github.com/sodre90/cmux-bridge/internal/httpjson"
-	"github.com/sodre90/cmux-bridge/internal/wire"
+	"github.com/sodre90/term-bridge/internal/httpjson"
+	"github.com/sodre90/term-bridge/internal/wire"
 )
 
 // resolveAttention works out what an attention frame should say and whether it

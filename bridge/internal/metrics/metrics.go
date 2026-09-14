@@ -13,7 +13,7 @@
 // The relay serves them live at /debug/vars (relay.Handler, behind the edge
 // token). The agent has no such route and deliberately gains no new listening
 // surface for one: it reports [Snapshot] in its periodic status file instead,
-// which `cmux-bridge status` prints (cmux-app-9aa).
+// which `term-bridge status` prints (cmux-app-9aa).
 package metrics
 
 import "expvar"

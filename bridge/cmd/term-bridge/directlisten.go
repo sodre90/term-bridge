@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/sodre90/cmux-bridge/internal/auth"
-	"github.com/sodre90/cmux-bridge/internal/backoff"
-	"github.com/sodre90/cmux-bridge/internal/config"
+	"github.com/sodre90/term-bridge/internal/auth"
+	"github.com/sodre90/term-bridge/internal/backoff"
+	"github.com/sodre90/term-bridge/internal/config"
 )
 
 const (

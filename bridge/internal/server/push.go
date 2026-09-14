@@ -9,11 +9,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/sodre90/cmux-bridge/internal/auth"
-	"github.com/sodre90/cmux-bridge/internal/httpjson"
-	"github.com/sodre90/cmux-bridge/internal/metrics"
-	"github.com/sodre90/cmux-bridge/internal/push"
-	"github.com/sodre90/cmux-bridge/internal/wire"
+	"github.com/sodre90/term-bridge/internal/auth"
+	"github.com/sodre90/term-bridge/internal/httpjson"
+	"github.com/sodre90/term-bridge/internal/metrics"
+	"github.com/sodre90/term-bridge/internal/push"
+	"github.com/sodre90/term-bridge/internal/wire"
 )
 
 // Pusher sends an FCM data message to one registration token. push.Sender

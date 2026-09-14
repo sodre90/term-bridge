@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/sodre90/cmux-bridge/internal/httpjson"
+	"github.com/sodre90/term-bridge/internal/httpjson"
 )
 
 type renameWorkspaceRequest struct {

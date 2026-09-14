@@ -7,8 +7,8 @@ package cmuxhost
 import (
 	"regexp"
 
-	"github.com/sodre90/cmux-bridge/internal/cmux"
-	"github.com/sodre90/cmux-bridge/internal/host"
+	"github.com/sodre90/term-bridge/internal/cmux"
+	"github.com/sodre90/term-bridge/internal/host"
 )
 
 // Host talks to one cmux instance.

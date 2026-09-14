@@ -30,7 +30,7 @@ type tailscaleSelf struct {
 // macOS's "macsys" (standalone, system-extension) install, LocalClient
 // reads local-API credentials from a file under /Library/Tailscale that is
 // readable only by root and the macOS `admin` group -- a group the account
-// running cmux-bridge need not belong to. The `tailscale` CLI binary is
+// running term-bridge need not belong to. The `tailscale` CLI binary is
 // recognized by the OS and fetches those credentials over XPC instead, so
 // it works for any user able to run `tailscale status` at all.
 func tailscaleSelfStatus(ctx context.Context) (*tailscaleSelf, error) {

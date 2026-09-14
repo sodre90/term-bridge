@@ -4,9 +4,9 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/sodre90/cmux-bridge/internal/host"
-	"github.com/sodre90/cmux-bridge/internal/httpjson"
-	"github.com/sodre90/cmux-bridge/internal/wire"
+	"github.com/sodre90/term-bridge/internal/host"
+	"github.com/sodre90/term-bridge/internal/httpjson"
+	"github.com/sodre90/term-bridge/internal/wire"
 )
 
 // handleLayout answers GET /sessions/{id}/layout from the host's pane list.

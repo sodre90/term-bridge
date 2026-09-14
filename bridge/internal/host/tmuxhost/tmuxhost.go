@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sodre90/cmux-bridge/internal/host"
-	"github.com/sodre90/cmux-bridge/internal/tmux"
+	"github.com/sodre90/term-bridge/internal/host"
+	"github.com/sodre90/term-bridge/internal/tmux"
 )
 
 // Host talks to one tmux server.

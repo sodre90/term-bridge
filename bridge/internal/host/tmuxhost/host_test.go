@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sodre90/cmux-bridge/internal/host"
-	"github.com/sodre90/cmux-bridge/internal/testutil"
-	"github.com/sodre90/cmux-bridge/internal/tmux"
-	"github.com/sodre90/cmux-bridge/internal/wire"
+	"github.com/sodre90/term-bridge/internal/host"
+	"github.com/sodre90/term-bridge/internal/testutil"
+	"github.com/sodre90/term-bridge/internal/tmux"
+	"github.com/sodre90/term-bridge/internal/wire"
 )
 
 const epoch = "1789367814"
@@ -208,8 +208,8 @@ func TestInputPasteAndResize(t *testing.T) {
 	log := f.log()
 	for _, want := range []string{
 		"send-keys -t %9 -H 6c 73 0d 1b 5b 41\n",
-		"load-buffer -b cmux-bridge-9 -\n",
-		"paste-buffer -p -d -b cmux-bridge-9 -t %9\n",
+		"load-buffer -b term-bridge-9 -\n",
+		"paste-buffer -p -d -b term-bridge-9 -t %9\n",
 		"resize-window -t @3 -x 80 -y 24\n",
 	} {
 		if !strings.Contains(log, want) {

@@ -3,7 +3,7 @@ package main
 import (
 	"log/slog"
 
-	"github.com/sodre90/cmux-bridge/internal/wire"
+	"github.com/sodre90/term-bridge/internal/wire"
 )
 
 // warnFCMClientConfig says out loud what a phone can never tell the operator:

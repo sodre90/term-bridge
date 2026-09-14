@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sodre90/cmux-bridge/internal/e2e"
+	"github.com/sodre90/term-bridge/internal/e2e"
 )
 
 func testDevicePubkeyB64(t *testing.T) string {

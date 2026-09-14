@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sodre90/cmux-bridge/internal/config"
+	"github.com/sodre90/term-bridge/internal/config"
 )
 
 // agentServer is one server this Mac's own CLI can talk to over the

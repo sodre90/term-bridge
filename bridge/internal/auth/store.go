@@ -19,8 +19,8 @@ import (
 
 	_ "modernc.org/sqlite"
 
-	"github.com/sodre90/cmux-bridge/internal/metrics"
-	"github.com/sodre90/cmux-bridge/internal/ratelimit"
+	"github.com/sodre90/term-bridge/internal/metrics"
+	"github.com/sodre90/term-bridge/internal/ratelimit"
 )
 
 // ErrNotFound is returned by Verify, Revoke, and SetFCMToken when no
@@ -131,7 +131,7 @@ type Device struct {
 	// which device is speaking without ever seeing the raw bearer token.
 	TokenHash string
 	// HashSuffix is the last 6 hex characters of TokenHash — enough for an
-	// operator to eyeball which device is which in `cmux-relay devices list`
+	// operator to eyeball which device is which in `term-bridge-relay devices list`
 	// output without printing the full hash.
 	HashSuffix string
 }
@@ -153,7 +153,7 @@ const rejectionLogInterval = time.Minute
 
 // Open opens (creating if absent) the SQLite database at path and applies the
 // schema and migrations. Safe to call from multiple short-lived processes
-// (the relay server and the `cmux-relay` CLI) against the same file — SQLite
+// (the relay server and the `term-bridge-relay` CLI) against the same file — SQLite
 // handles the locking, so there is no in-memory cache to fall out of sync.
 func Open(path string) (*Store, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
@@ -603,7 +603,7 @@ func (s *Store) RedeemPairingCode(code, name, devicePubkey string) (token, tenan
 // whether it has been redeemed. Once redeemed, it returns the redeeming
 // device's public key and full token hash — never the raw token, which was
 // already handed to the phone directly by RedeemPairingCode and is never
-// persisted. Used by `cmux-bridge pair-device`'s poll loop to learn a
+// persisted. Used by `term-bridge pair-device`'s poll loop to learn a
 // device's identity once the phone completes /devices/pair. Scoped to
 // tenantID so one tenant's agent can never observe another tenant's pairing
 // codes, even by guessing.

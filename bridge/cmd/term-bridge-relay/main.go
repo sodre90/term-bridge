@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/sodre90/cmux-bridge/internal/logging"
-	"github.com/sodre90/cmux-bridge/internal/version"
+	"github.com/sodre90/term-bridge/internal/logging"
+	"github.com/sodre90/term-bridge/internal/version"
 )
 
 func main() {
@@ -22,7 +22,7 @@ func main() {
 	case "tenants":
 		os.Exit(runTenants(os.Args[2:]))
 	case "version", "--version", "-v":
-		fmt.Println("cmux-relay", version.String())
+		fmt.Println("term-bridge-relay", version.String())
 	default:
 		usage()
 		os.Exit(2)
@@ -30,5 +30,5 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: cmux-relay <serve|devices|tenants|version> [flags]")
+	fmt.Fprintln(os.Stderr, "usage: term-bridge-relay <serve|devices|tenants|version> [flags]")
 }

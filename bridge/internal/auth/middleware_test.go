@@ -82,7 +82,7 @@ func reject(t *testing.T, h http.Handler, token string) {
 // A rejection used to leave no trace at all, which is why the 2026-08-21
 // lockout had to be diagnosed by reading SQLite by hand (cmux-app-hr1). The
 // prefix is what makes the line actionable: it is the same value
-// `cmux-bridge devices list` prints.
+// `term-bridge devices list` prints.
 func TestRequireLogsRejectionWithHashPrefixNotTheToken(t *testing.T) {
 	_, h, _ := protected(t)
 	buf := captureLog(t)

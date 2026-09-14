@@ -12,11 +12,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sodre90/cmux-bridge/internal/auth"
-	"github.com/sodre90/cmux-bridge/internal/cmux"
-	"github.com/sodre90/cmux-bridge/internal/e2e"
-	"github.com/sodre90/cmux-bridge/internal/server"
-	"github.com/sodre90/cmux-bridge/internal/tunnel"
+	"github.com/sodre90/term-bridge/internal/auth"
+	"github.com/sodre90/term-bridge/internal/cmux"
+	"github.com/sodre90/term-bridge/internal/e2e"
+	"github.com/sodre90/term-bridge/internal/server"
+	"github.com/sodre90/term-bridge/internal/tunnel"
 )
 
 // testPushHarness wires a full agent<->relay tunnel (mirroring

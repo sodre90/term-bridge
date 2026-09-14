@@ -9,11 +9,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sodre90/cmux-bridge/internal/auth"
-	"github.com/sodre90/cmux-bridge/internal/cmux"
-	"github.com/sodre90/cmux-bridge/internal/testutil"
-	"github.com/sodre90/cmux-bridge/internal/wire"
-	"github.com/sodre90/cmux-bridge/internal/yolo"
+	"github.com/sodre90/term-bridge/internal/auth"
+	"github.com/sodre90/term-bridge/internal/cmux"
+	"github.com/sodre90/term-bridge/internal/testutil"
+	"github.com/sodre90/term-bridge/internal/wire"
+	"github.com/sodre90/term-bridge/internal/yolo"
 )
 
 // realistic-shaped mobile.workspace.list payload: a workspace duplicated across

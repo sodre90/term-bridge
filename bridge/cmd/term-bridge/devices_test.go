@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sodre90/cmux-bridge/internal/e2e"
-	"github.com/sodre90/cmux-bridge/internal/wire"
+	"github.com/sodre90/term-bridge/internal/e2e"
+	"github.com/sodre90/term-bridge/internal/wire"
 )
 
 // fakeAdminServer is the agent-facing half of the device-admin routes,

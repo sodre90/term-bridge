@@ -1,5 +1,5 @@
 // Package status defines the small on-disk health snapshot the running
-// `cmux-bridge agent` process writes periodically, and `cmux-bridge status`
+// `term-bridge agent` process writes periodically, and `term-bridge status`
 // reads, so an operator can ask "is the tunnel up, when did we last reach
 // cmux, when was the last event" without reading logs.
 //

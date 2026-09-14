@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/sodre90/cmux-bridge/internal/httpjson"
+	"github.com/sodre90/term-bridge/internal/httpjson"
 )
 
 type ctxKey int
@@ -39,8 +39,8 @@ func Require(s *Store, next http.Handler) http.Handler {
 	})
 }
 
-// rejectionHashLen matches the prefix width `cmux-bridge devices list` and
-// `cmux-relay devices list` print, so a rejection line can be matched against
+// rejectionHashLen matches the prefix width `term-bridge devices list` and
+// `term-bridge-relay devices list` print, so a rejection line can be matched against
 // a listing row without converting anything. Kept in step with those by hand:
 // their own constant lives in package main and cannot be imported here.
 const rejectionHashLen = 12

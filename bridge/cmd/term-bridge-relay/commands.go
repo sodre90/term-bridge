@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sodre90/cmux-bridge/internal/auth"
-	"github.com/sodre90/cmux-bridge/internal/cli"
-	"github.com/sodre90/cmux-bridge/internal/config"
+	"github.com/sodre90/term-bridge/internal/auth"
+	"github.com/sodre90/term-bridge/internal/cli"
+	"github.com/sodre90/term-bridge/internal/config"
 )
 
 // announceStore names the database every admin answer below came from, on
@@ -37,7 +37,7 @@ func parseAdminArgs(name string, args []string) (cfgPath string, rest []string, 
 	}
 	for _, arg := range fs.Args() {
 		if strings.HasPrefix(arg, "-") {
-			fmt.Fprintf(os.Stderr, "flags must come before the subcommand: cmux-relay %s %s ...\n", name, arg)
+			fmt.Fprintf(os.Stderr, "flags must come before the subcommand: term-bridge-relay %s %s ...\n", name, arg)
 			return "", nil, false
 		}
 	}
@@ -138,12 +138,12 @@ func runDevices(args []string) int {
 		return 0
 	case rest[0] == "revoke":
 		if len(rest) < 2 {
-			fmt.Fprintln(os.Stderr, "usage: cmux-relay devices revoke <device-prefix>")
+			fmt.Fprintln(os.Stderr, "usage: term-bridge-relay devices revoke <device-prefix>")
 			return 2
 		}
 		return revokeDevice(store, rest[1])
 	default:
-		fmt.Fprintln(os.Stderr, "usage: cmux-relay devices [list|revoke <device-prefix>]")
+		fmt.Fprintln(os.Stderr, "usage: term-bridge-relay devices [list|revoke <device-prefix>]")
 		return 2
 	}
 }
@@ -176,7 +176,7 @@ func runTenants(args []string) int {
 		return 0
 	case rest[0] == "revoke":
 		if len(rest) < 2 {
-			fmt.Fprintln(os.Stderr, "usage: cmux-relay tenants revoke <id>")
+			fmt.Fprintln(os.Stderr, "usage: term-bridge-relay tenants revoke <id>")
 			return 2
 		}
 		if store.RevokeTenant(rest[1]) {
@@ -186,7 +186,7 @@ func runTenants(args []string) int {
 		fmt.Fprintln(os.Stderr, "no such tenant, or already revoked")
 		return 1
 	default:
-		fmt.Fprintln(os.Stderr, "usage: cmux-relay tenants [list|revoke <id>]")
+		fmt.Fprintln(os.Stderr, "usage: term-bridge-relay tenants [list|revoke <id>]")
 		return 2
 	}
 }

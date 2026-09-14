@@ -1,5 +1,5 @@
 // Package httpjson is the bridge's single JSON response writer. Every prod
-// handler across cmux-relay and cmux-bridge routes both its success and
+// handler across term-bridge-relay and term-bridge routes both its success and
 // error bodies through Write/Error, so an error response is always
 // {"error":"..."} with the matching status code -- one shape for the app to
 // parse instead of each package rolling its own near-identical writer (or,

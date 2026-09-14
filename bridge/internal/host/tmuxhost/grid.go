@@ -10,7 +10,7 @@ import (
 
 	"github.com/mattn/go-runewidth"
 
-	"github.com/sodre90/cmux-bridge/internal/host"
+	"github.com/sodre90/term-bridge/internal/host"
 )
 
 // scrollbackCap is how many history rows a replay carries, matching the

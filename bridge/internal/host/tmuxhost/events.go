@@ -5,9 +5,9 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/sodre90/cmux-bridge/internal/backoff"
-	"github.com/sodre90/cmux-bridge/internal/tmux"
-	"github.com/sodre90/cmux-bridge/internal/wire"
+	"github.com/sodre90/term-bridge/internal/backoff"
+	"github.com/sodre90/term-bridge/internal/tmux"
+	"github.com/sodre90/term-bridge/internal/wire"
 )
 
 // EventTypeLayout is the frame RunEvents sends when windows, panes or

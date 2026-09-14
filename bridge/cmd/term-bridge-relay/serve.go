@@ -14,11 +14,11 @@ import (
 
 	"github.com/hashicorp/yamux"
 
-	"github.com/sodre90/cmux-bridge/internal/ca"
-	"github.com/sodre90/cmux-bridge/internal/cli"
-	"github.com/sodre90/cmux-bridge/internal/push"
-	"github.com/sodre90/cmux-bridge/internal/relay"
-	"github.com/sodre90/cmux-bridge/internal/wire"
+	"github.com/sodre90/term-bridge/internal/ca"
+	"github.com/sodre90/term-bridge/internal/cli"
+	"github.com/sodre90/term-bridge/internal/push"
+	"github.com/sodre90/term-bridge/internal/relay"
+	"github.com/sodre90/term-bridge/internal/wire"
 )
 
 func defaultConfigPath() string {
@@ -106,7 +106,7 @@ func runServe(args []string) int {
 	defer cancel()
 
 	// No SIGHUP/reload handling needed: the store reads live from SQLite on
-	// every request, so a separate `cmux-relay devices`/`tenants` process's
+	// every request, so a separate `term-bridge-relay devices`/`tenants` process's
 	// writes are visible immediately without a restart or reload signal.
 	// Connections that authenticated BEFORE such a write are the one thing
 	// that read-through doesn't cover, which is what this sweep is for.
@@ -120,7 +120,7 @@ func runServe(args []string) int {
 		_ = httpSrv.Shutdown(shutCtx)
 	}()
 
-	slog.Info("cmux-relay listening", "listen", cfg.Listen)
+	slog.Info("term-bridge-relay listening", "listen", cfg.Listen)
 	if err := httpSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		slog.Error("serve: listen and serve", "err", err)
 		return 1

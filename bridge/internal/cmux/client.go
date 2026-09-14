@@ -68,7 +68,7 @@ type Client struct {
 
 	// OnReached, if set, is called after Rpc completes successfully (either
 	// fast-path socket or subprocess). Used only to drive the
-	// "last successfully reached cmux" status surface (cmux-bridge status,
+	// "last successfully reached cmux" status surface (term-bridge status,
 	// see internal/status); nil is a safe no-op default, so every existing
 	// caller and test is unaffected.
 	OnReached func()

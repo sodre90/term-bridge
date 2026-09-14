@@ -13,7 +13,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/sodre90/cmux-bridge/internal/metrics"
+	"github.com/sodre90/term-bridge/internal/metrics"
 )
 
 // ErrTokenDead marks a send that failed because the registration token will

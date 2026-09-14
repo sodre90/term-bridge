@@ -9,7 +9,7 @@ import (
 
 	"github.com/hashicorp/yamux"
 
-	"github.com/sodre90/cmux-bridge/internal/metrics"
+	"github.com/sodre90/term-bridge/internal/metrics"
 )
 
 // Registry holds one active agent tunnel session per tenant. A new session

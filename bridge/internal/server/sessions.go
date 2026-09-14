@@ -5,9 +5,9 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/sodre90/cmux-bridge/internal/host"
-	"github.com/sodre90/cmux-bridge/internal/httpjson"
-	"github.com/sodre90/cmux-bridge/internal/wire"
+	"github.com/sodre90/term-bridge/internal/host"
+	"github.com/sodre90/term-bridge/internal/httpjson"
+	"github.com/sodre90/term-bridge/internal/wire"
 )
 
 // findWorkspace fetches the live workspace list and returns the one matching

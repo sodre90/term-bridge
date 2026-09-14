@@ -19,28 +19,28 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/sodre90/cmux-bridge/internal/auth"
-	"github.com/sodre90/cmux-bridge/internal/backoff"
-	"github.com/sodre90/cmux-bridge/internal/cli"
-	"github.com/sodre90/cmux-bridge/internal/cmux"
-	"github.com/sodre90/cmux-bridge/internal/config"
-	"github.com/sodre90/cmux-bridge/internal/e2e"
-	"github.com/sodre90/cmux-bridge/internal/host"
-	"github.com/sodre90/cmux-bridge/internal/host/cmuxhost"
-	"github.com/sodre90/cmux-bridge/internal/host/tmuxhost"
-	"github.com/sodre90/cmux-bridge/internal/logging"
-	"github.com/sodre90/cmux-bridge/internal/metrics"
-	"github.com/sodre90/cmux-bridge/internal/push"
-	"github.com/sodre90/cmux-bridge/internal/server"
-	"github.com/sodre90/cmux-bridge/internal/status"
-	"github.com/sodre90/cmux-bridge/internal/tmux"
-	"github.com/sodre90/cmux-bridge/internal/tunnel"
-	"github.com/sodre90/cmux-bridge/internal/wire"
-	"github.com/sodre90/cmux-bridge/internal/yolo"
+	"github.com/sodre90/term-bridge/internal/auth"
+	"github.com/sodre90/term-bridge/internal/backoff"
+	"github.com/sodre90/term-bridge/internal/cli"
+	"github.com/sodre90/term-bridge/internal/cmux"
+	"github.com/sodre90/term-bridge/internal/config"
+	"github.com/sodre90/term-bridge/internal/e2e"
+	"github.com/sodre90/term-bridge/internal/host"
+	"github.com/sodre90/term-bridge/internal/host/cmuxhost"
+	"github.com/sodre90/term-bridge/internal/host/tmuxhost"
+	"github.com/sodre90/term-bridge/internal/logging"
+	"github.com/sodre90/term-bridge/internal/metrics"
+	"github.com/sodre90/term-bridge/internal/push"
+	"github.com/sodre90/term-bridge/internal/server"
+	"github.com/sodre90/term-bridge/internal/status"
+	"github.com/sodre90/term-bridge/internal/tmux"
+	"github.com/sodre90/term-bridge/internal/tunnel"
+	"github.com/sodre90/term-bridge/internal/wire"
+	"github.com/sodre90/term-bridge/internal/yolo"
 )
 
 // statusWriteInterval is how often runAgent persists its status.Snapshot to
-// disk for `cmux-bridge status` to read. Short enough that an operator never
+// disk for `term-bridge status` to read. Short enough that an operator never
 // waits long for a state change to show up, long enough that it's a
 // negligible amount of disk I/O.
 const statusWriteInterval = 5 * time.Second
@@ -115,7 +115,7 @@ func loadTLS(certPath, keyPath, caPath string) (*tls.Config, error) {
 // dialAndServe runs one tunnel lifecycle: dial the relay, then serve the handler
 // over the yamux session until it dies. Returns when the session ends.
 // onConnected, if not nil, is called once the dial succeeds, before serving
-// -- runAgent uses it to drive the relay-tunnel-up status for `cmux-bridge
+// -- runAgent uses it to drive the relay-tunnel-up status for `term-bridge
 // status`.
 func dialAndServe(ctx context.Context, relayURL string, tlsCfg *tls.Config, handler http.Handler, onConnected func()) error {
 	sess, err := tunnel.Dial(ctx, relayURL, tlsCfg, nil)
@@ -249,7 +249,7 @@ func refreshDirectCert(ctx context.Context, domain, certFile, keyFile string, ce
 // like the pairing endpoints, are otherwise unauthenticated), so listening
 // on 0.0.0.0/[::] here would let any LAN-adjacent device reach them too.
 // health, if not nil, is where the listener reports itself for
-// `cmux-bridge status`.
+// `term-bridge status`.
 func serveDirect(ctx context.Context, listenAddr, certDir string, store *auth.Store, tenantID string, handler http.Handler, health *directHealth, fcm wire.FCMClientConfig) error {
 	mux := http.NewServeMux()
 	server.MountDirectPairing(mux, store, tenantID, fcm)
@@ -338,7 +338,7 @@ const agentAdminPrefix = "/agent/"
 // Reaching a handler proves the TLS handshake completed, which bind success
 // alone never did. Excluding the admin API is what stops the reaper's hourly
 // round from advancing direct_last_served_at on its own behalf -- that made
-// the only signal `cmux-bridge status` offers about the standby transport
+// the only signal `term-bridge status` offers about the standby transport
 // self-satisfying, reporting it healthy on a day when every phone request to
 // it 401'd (cmux-app-8d3). Excluding a caller can only ever under-report,
 // which is the safe direction for a health signal to fail in.
@@ -352,7 +352,7 @@ func markServedByDevice(health *directHealth, next http.Handler) http.Handler {
 }
 
 // directHealth is what the direct listener reports about itself for
-// `cmux-bridge status`. A nil *directHealth is usable and records nothing,
+// `term-bridge status`. A nil *directHealth is usable and records nothing,
 // so tests and any future caller that doesn't want the reporting can pass
 // one.
 type directHealth struct {
@@ -519,7 +519,7 @@ func runAgent(args []string) int {
 	go runReaper(ctx, cfg, sessions, reaperFirstRound, reaperPeriod, func(reached map[string]bool) {
 		slotReach.Record(reached, time.Now())
 	})
-	// `cmux-bridge devices revoke` edits the session store from its own
+	// `term-bridge devices revoke` edits the session store from its own
 	// process, so an already-streaming socket never learns about it; this is
 	// what closes those.
 	go srv.SweepUnpairedSockets(ctx)

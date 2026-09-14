@@ -12,11 +12,11 @@ import (
 
 	"github.com/hashicorp/yamux"
 
-	"github.com/sodre90/cmux-bridge/internal/auth"
-	"github.com/sodre90/cmux-bridge/internal/httpjson"
-	"github.com/sodre90/cmux-bridge/internal/metrics"
-	pushpkg "github.com/sodre90/cmux-bridge/internal/push"
-	"github.com/sodre90/cmux-bridge/internal/wire"
+	"github.com/sodre90/term-bridge/internal/auth"
+	"github.com/sodre90/term-bridge/internal/httpjson"
+	"github.com/sodre90/term-bridge/internal/metrics"
+	pushpkg "github.com/sodre90/term-bridge/internal/push"
+	"github.com/sodre90/term-bridge/internal/wire"
 )
 
 // handleTestPush lets a paired device trigger one real, end-to-end push to
@@ -24,7 +24,7 @@ import (
 // check that push setup (FCM credentials + this device's own registration)
 // actually works, instead of waiting to hit a real breakage. It sends
 // through the exact same r.push.Send (the real push.Sender, wired in
-// cmd/cmux-relay/serve.go) real attention pushes use, and the exact same
+// cmd/term-bridge-relay/serve.go) real attention pushes use, and the exact same
 // per-device e2e encryption (via fetchTestPushCiphertext ->
 // server.buildTestPushCiphertext, agent-side) real attention pushes use --
 // the only thing "test" about it is the payload's title/body.

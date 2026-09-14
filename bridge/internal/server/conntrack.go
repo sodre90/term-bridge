@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sodre90/cmux-bridge/internal/e2e"
+	"github.com/sodre90/term-bridge/internal/e2e"
 )
 
 // How long a socket belonging to an unpaired device may keep streaming. The

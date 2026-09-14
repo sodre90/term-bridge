@@ -13,14 +13,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sodre90/cmux-bridge/internal/cmux"
-	"github.com/sodre90/cmux-bridge/internal/e2e"
-	"github.com/sodre90/cmux-bridge/internal/testutil"
+	"github.com/sodre90/term-bridge/internal/cmux"
+	"github.com/sodre90/term-bridge/internal/e2e"
+	"github.com/sodre90/term-bridge/internal/testutil"
 )
 
 // pairedSessions returns an e2e.Store with one device ("dev1-token-hash")
 // already paired, plus its deviceID key and shared secret — mirroring how
-// `cmux-bridge pair-device` (Task 15) populates the real store, without
+// `term-bridge pair-device` (Task 15) populates the real store, without
 // depending on that CLI.
 func pairedSessions(t *testing.T) (sessions *e2e.Store, deviceID string, secret []byte) {
 	t.Helper()

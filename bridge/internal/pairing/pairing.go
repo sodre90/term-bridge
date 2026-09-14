@@ -12,10 +12,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/sodre90/cmux-bridge/internal/auth"
-	"github.com/sodre90/cmux-bridge/internal/httpjson"
-	"github.com/sodre90/cmux-bridge/internal/metrics"
-	"github.com/sodre90/cmux-bridge/internal/wire"
+	"github.com/sodre90/term-bridge/internal/auth"
+	"github.com/sodre90/term-bridge/internal/httpjson"
+	"github.com/sodre90/term-bridge/internal/metrics"
+	"github.com/sodre90/term-bridge/internal/wire"
 )
 
 // TenantResolver reports the tenant the agent-facing pairing-code routes
@@ -72,7 +72,7 @@ type handlers struct {
 }
 
 // newPairingCode lets an agent request a fresh single-use pairing code to
-// embed in a QR code (see cmd/cmux-bridge/pair.go). TenantID is echoed
+// embed in a QR code (see cmd/term-bridge/pair.go). TenantID is echoed
 // back so the QR payload can carry it for display, even though
 // /devices/pair itself never needs it in the request (see the Global
 // Constraint on that endpoint's simplified request/response shapes) — the
@@ -128,7 +128,7 @@ func (h *handlers) pairingCodeStatus(w http.ResponseWriter, req *http.Request) {
 
 // abortPairing lets the agent that issued a pairing code destroy whatever
 // that code produced, for the case the operator refuses the fingerprint (see
-// cmd/cmux-bridge/pair.go). Redemption mints the device's bearer token
+// cmd/term-bridge/pair.go). Redemption mints the device's bearer token
 // before the operator is ever asked, so without this an explicit refusal
 // left the phone holding a working credential -- one with no e2e session
 // behind it, but valid for every bearer-authenticated route
@@ -226,7 +226,7 @@ func (h *handlers) pairingCodeInfo(w http.ResponseWriter, req *http.Request) {
 // scanning the agent's pairing QR code (or resolving a manually entered
 // code via pairingCodeInfo). The response omits the agent's e2e public key
 // (the phone already has it from the QR code payload itself,
-// cmd/cmux-bridge/pair.go, or from pair-info -- the relay never needs to
+// cmd/term-bridge/pair.go, or from pair-info -- the relay never needs to
 // hold or forward e2e key material) but keeps tenant_id, informationally,
 // so the app knows which workspace it just joined.
 func (h *handlers) devicePair(w http.ResponseWriter, req *http.Request) {

@@ -18,8 +18,8 @@ import (
 
 	"github.com/mdp/qrterminal/v3"
 
-	"github.com/sodre90/cmux-bridge/internal/config"
-	"github.com/sodre90/cmux-bridge/internal/e2e"
+	"github.com/sodre90/term-bridge/internal/config"
+	"github.com/sodre90/term-bridge/internal/e2e"
 )
 
 // pairingRequestTimeout bounds a single pairing-code request/poll HTTP call.

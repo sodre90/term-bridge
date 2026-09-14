@@ -15,7 +15,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/sodre90/cmux-bridge/internal/config"
+	"github.com/sodre90/term-bridge/internal/config"
 )
 
 type registerResp struct {

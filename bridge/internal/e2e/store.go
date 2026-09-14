@@ -409,7 +409,7 @@ func (s *Store) DeviceIDs() []string {
 // a request/frame (proving it still holds the shared secret and is in
 // active use) before ActiveDeviceIDs stops considering it paired. There is
 // no cross-process revocation signal from auth.Store reaching this agent-side
-// store (see cmd/cmux-relay/commands.go's Revoke, which only touches the
+// store (see cmd/term-bridge-relay/commands.go's Revoke, which only touches the
 // relay's own SQLite store), so recent activity is the only
 // locally-available proxy for "still paired" -- generous on purpose to avoid
 // dropping a device that's simply been offline for a while.

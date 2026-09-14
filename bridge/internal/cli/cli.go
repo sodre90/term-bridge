@@ -1,4 +1,4 @@
-// Package cli holds bootstrap helpers shared by the cmux-bridge and cmux-relay
+// Package cli holds bootstrap helpers shared by the term-bridge and term-bridge-relay
 // command binaries: resolving config paths and opening the device-token store
 // the config points at.
 package cli
@@ -8,8 +8,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/sodre90/cmux-bridge/internal/auth"
-	"github.com/sodre90/cmux-bridge/internal/config"
+	"github.com/sodre90/term-bridge/internal/auth"
+	"github.com/sodre90/term-bridge/internal/config"
 )
 
 // ConfigPath returns ~/.config/<app>/<file>, falling back to <file> in the
@@ -41,7 +41,7 @@ func LoadStore(cfgPath string) (config.Config, *auth.Store, error) {
 // must never bring a store into existence: a missing config file silently
 // yields defaults (config.Load), so pointing at the wrong config makes
 // LoadStore create a fresh, empty store and answer confidently from it.
-// Observed 2026-08-11: `podman exec cmux-relay cmux-relay devices list`
+// Observed 2026-08-11: `podman exec term-bridge-relay term-bridge-relay devices list`
 // reported "no paired devices" against a relay holding 19 (cmux-app-xdc).
 // A tool that answers a question about the wrong database is worse than one
 // that fails, so this refuses -- and names the path it looked at, since that

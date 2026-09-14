@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/sodre90/cmux-bridge/internal/backoff"
-	"github.com/sodre90/cmux-bridge/internal/wire"
+	"github.com/sodre90/term-bridge/internal/backoff"
+	"github.com/sodre90/term-bridge/internal/wire"
 )
 
 // RunEvents keeps a `cmux events --reconnect` stream flowing into sink until

@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/sodre90/cmux-bridge/internal/host"
+	"github.com/sodre90/term-bridge/internal/host"
 )
 
 // PendingFeed is empty until the Claude Code hook feed exists: tmux itself

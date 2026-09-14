@@ -38,7 +38,7 @@ func (h *Host) Paste(ctx context.Context, surfaceID, text string) error {
 	if err != nil {
 		return err
 	}
-	buffer := "cmux-bridge-" + target[1:]
+	buffer := "term-bridge-" + target[1:]
 	if _, err := h.tmux.RunWithStdin(ctx, []byte(text), "load-buffer", "-b", buffer, "-"); err != nil {
 		return err
 	}

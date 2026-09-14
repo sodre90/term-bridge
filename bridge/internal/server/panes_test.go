@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sodre90/cmux-bridge/internal/host/cmuxhost"
-	"github.com/sodre90/cmux-bridge/internal/wire"
+	"github.com/sodre90/term-bridge/internal/host/cmuxhost"
+	"github.com/sodre90/term-bridge/internal/wire"
 )
 
 func TestSplitFromTheViewedSurface(t *testing.T) {

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sodre90/cmux-bridge/internal/status"
+	"github.com/sodre90/term-bridge/internal/status"
 )
 
 func TestPrintStatusRelayUpDirectDisabled(t *testing.T) {
@@ -92,7 +92,7 @@ func TestPrintStatusDistinguishesBoundFromWorking(t *testing.T) {
 }
 
 // cmux-app-9aa: these totals have no /debug/vars on the agent to be read
-// from, so `cmux-bridge status` is the only place they surface at all.
+// from, so `term-bridge status` is the only place they surface at all.
 func TestPrintStatusListsCountersSortedIncludingZeroes(t *testing.T) {
 	var buf bytes.Buffer
 	printStatus(&buf, status.Snapshot{

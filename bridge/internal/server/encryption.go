@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/sodre90/cmux-bridge/internal/e2e"
-	"github.com/sodre90/cmux-bridge/internal/httpjson"
-	"github.com/sodre90/cmux-bridge/internal/metrics"
+	"github.com/sodre90/term-bridge/internal/e2e"
+	"github.com/sodre90/term-bridge/internal/httpjson"
+	"github.com/sodre90/term-bridge/internal/metrics"
 )
 
 // SetSessions enables the opt-in e2e content-encryption layer. Called only by

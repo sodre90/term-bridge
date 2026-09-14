@@ -3,8 +3,8 @@ package main
 import (
 	"testing"
 
-	"github.com/sodre90/cmux-bridge/internal/config"
-	"github.com/sodre90/cmux-bridge/internal/wire"
+	"github.com/sodre90/term-bridge/internal/config"
+	"github.com/sodre90/term-bridge/internal/wire"
 )
 
 // Four same-typed strings: transposing any two compiles cleanly and every
