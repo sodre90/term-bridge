@@ -271,39 +271,63 @@ screen scraping.
 
 ### Multi-host in the app
 
-Today `Settings`, `SlotCredentials`, `CryptoSession`, the YOLO badge cache
-and FCM registration are keyed by `ConnectionSlot` only. Introduce a
-**`HostId`** = fingerprint of the agent's identity public key, which both
-slots already receive at pairing as `agent_pubkey` (`wire/pairing.go`) and
-which is what makes RELAY and DIRECT "the same Mac" today. Not the relay
-tenant id: the DIRECT slot has no tenant. Key everything by
-`(HostId, ConnectionSlot)`:
+Before phase 3, `Settings`, `SlotCredentials`, `CryptoSession`, the YOLO
+badge cache and FCM registration were keyed by `ConnectionSlot` only.
+**`HostId`** = hex of the first 16 bytes of SHA-256 over the agent's identity
+public key, which both slots already receive at pairing as `agent_pubkey`
+(`wire/pairing.go`) and which is what makes RELAY and DIRECT "the same Mac"
+(`pair-device` loads one `identity_key` for both). Not the relay tenant id:
+the DIRECT slot has no tenant. Everything is keyed by
+`(HostId, ConnectionSlot)` -- as implemented (branch `linux-host-phase3`):
 
-- `Settings.migrateLegacyIfNeeded` gets a second migration: existing
-  single-host data becomes host `default` (the Mac), with its display name
-  taken from the pairing response's `host_name` (new wire field; the Mac's
-  is its hostname, the Linux one `hostname -s`).
-- **Host switcher** on the sessions list (top-bar dropdown; the current
-  host's name in the title). Sessions list, Inbox and terminal are scoped
-  to the selected host. A merged "all hosts" list is deliberately *not* in
-  v1 — ids, capabilities and feed semantics differ per host and the
-  switcher keeps every screen single-host.
-- Connections screen lists hosts; "Pair another host" runs the existing
-  pairing flow (QR + SAS fingerprint confirmation, unchanged) and stores
-  under the new `HostId`.
-- Push: FCM data messages already carry the tenant; the notification tap
-  deep-links to the right host + workspace. One FCM token is registered
-  with each host (bead cmux-app-8jb's duplicate-push issue is per host and
-  unaffected).
-- Per-host `Capabilities` gate UI: no "add as tab" on tmux hosts; feed
-  kinds per host; "Show on Mac" relabelled from the host name.
+- **Storage**: `Settings` and `CryptoSession` records live under
+  `<host>_<slot>_` prefixes in the two encrypted prefs files. A one-shot
+  migration (`HostKeyedMigration.kt`) runs over the raw prefs *before* any
+  `CryptoSession` is built -- it loads its counters in its constructor --
+  and folds both earlier layouts (the original unprefixed single pairing,
+  routed by `inferLegacySlot`; then `relay_`/`direct_`) into it. A slot's
+  host is derived from the agent key its e2e record stores; a slot with
+  credentials but no e2e record is dropped (nothing could authenticate on
+  it anyway; re-pair). The FCM config owner becomes `<host>:<SLOT>`.
+- **Host registry** (`HostRegistry`, persisted in `Settings`): the paired
+  hosts and the selected one. A host's name and kind are *not* a pairing
+  wire field after all -- they are learned from the `host` block GET
+  /sessions already returns (phase 1), via `FallbackBridgeClient`'s
+  `onHostInfo`; the placeholder until the first fetch is the relay URL's
+  hostname. An agent older than the host block keeps the placeholder.
+- **Per-host connections** (`HostConnections`): sessions, HTTP clients,
+  `RelayHealth`, `ConnectionMonitor`, `SlotCredentials`,
+  `SlotCredentialHealth`, `FallbackBridgeClient` -- one set per host, none
+  shared. `AppContainer` serves the ViewModel gateways from the selected
+  host (`HostId.NONE` before any pairing), and `CmuxNavHost` is keyed on
+  the selection so a switch recreates the graph and every ViewModel
+  rather than letting one follow the selection with old sockets up.
+- **Pairing**: `PairingClient` resolves the host from the QR's
+  `agent_pubkey` at commit through `bindHost`, so the credential it
+  retires, the sockets it drops and the rejection it clears are all that
+  host's. "Pair another host" (host menu + Connections card) pairs the
+  RELAY route; DIRECT is pairable afterwards from the host's card.
+- **Host switcher**: the sessions title is the selected host's name and
+  opens a menu of every host (kind badge, check on the current) plus "Pair
+  another host…". A merged "all hosts" list is deliberately *not* in v1.
+- **Connections** lists each host with its relay/direct rows (status read
+  from that host's own `SlotCredentialHealth`); forgetting a host's last
+  slot removes it from the registry and the selection moves on.
+- **Push**: the payload names a slot but no host, so the messaging service
+  tries every paired host's session for that slot (selected first) -- the
+  AEAD rejects the wrong host and the receive counter is only committed on
+  a successful decrypt. The notification's deep link carries the host that
+  opened it (`EXTRA_HOST_ID`); MainActivity selects it before publishing
+  the deep link. One FCM token is registered with *every* host and stays
+  pending until all accept (registration is an upsert per server).
+- **Capabilities** gate UI: no "add as tab" on tmux hosts (phase 4); no
+  Inbox button, YOLO menu item or `/feed/pending` poll when `feed` is off;
+  copy that named "the Mac" names the selected host via `LocalHostName`
+  ("Show on home-server") or is host-neutral.
 
-Wire changes (all three copies — `model/Dtos.kt`, `internal/wire`,
-`internal/relay/relay.go` — in one commit each): `host_name`,
-`host_kind`, `capabilities` on the pairing/status response;
-`session` (tmux session name) on `CreateWorkspaceRequest` when
-`Capabilities.Sessions` is set; a `sessions` list in the workspace list
-response for the create dialog.
+Wire changes still pending for later phases: `session` (tmux session name)
+on `CreateWorkspaceRequest` when `Capabilities.Sessions` is set, and a
+`sessions` list in the workspace list response for the create dialog.
 
 ### Deployment on the home server
 
@@ -389,7 +413,7 @@ hook items (1–4, 9) and item 10 are still open and gate phase 5 only.
 Item | Result
 --- | ---
 5 | `capture-pane -e -p -N` of Claude Code's trust prompt saved as `bridge/internal/host/tmuxhost/testdata/claude-trust-prompt.capture`. Besides SGR it carries **OSC 8 hyperlinks** (`ESC]8;id=…;url ESC\`), so the parser skips every OSC (ESC\ or BEL terminated), not only CSI.
-6 | Pending (phase 3 reads the app's id handling; the bridge side is `Host.ValidID`).
+6 | Confirmed by the phase 4 and phase 3 live tests: tmux's `$n`/`%n` ids travel through the list, terminal, workspace order, push deep links and the per-host stores as opaque strings; the bridge side is `Host.ValidID`.
 7 | Confirmed: `resize-window -x 60 -y 20` flips `window-size` from `latest` (global) to `manual`; `set-option -wu window-size` unsets it again. With no client attached the window keeps 60x20 after the unset — expected, there is no client size to follow.
 8 | `#{start_time}` renders as plain epoch seconds (`1789367814`). `display -p -F … \; capture-pane -e -p -N` returns the format line first, then the screen rows, in one invocation.
 control mode | `tmux -C attach -t <s> -f no-output` (stdin must stay open) reports `%unlinked-window-add/-close/-renamed` and `%sessions-changed` for **every** session, `%window-add/-renamed`/`%layout-change` for the attached one, and no `%output`. Enough for a "list changed" signal across all sessions from one client.
@@ -397,6 +421,7 @@ hairpin | From the server, `https://sodre-cmux.mywire.org/agent/tunnel` reaches 
 tmux version | 3.7c on the server (the survey was written against the Mac's 3.6b man page; every format used above exists in both).
 empty history | `capture-pane -S -240 -E -1` on a pane with `history_size` 0 prints the screen's **first row once** rather than nothing (`-E -1` clamps to row 0); with N>0 history rows it prints exactly min(N, 240). Found in the phase 4 live test (every fresh or `clear`ed pane failed replay); `Replay` drops the echoed row when history is 0.
 live test | Phase 4 end-to-end on the emulator paired to the Linux agent, 2026-09-14: list, render (16/256/truecolour, italic, underline, wide chars), input, paste, resize + `window-size` release, split, rename, close pane/window, create window, control-mode refresh, agent restart. Not exercised: `classifyKind` (no agent was run in a pane) and a tmux **server** restart (the stale-epoch path).
+phase 3 live | On the emulator, 2026-09-14: the in-place upgrade migrated the existing slot-keyed Linux pairing under its `HostId` (name learned as `home-server`, Inbox hidden); "Pair another host" paired the Mac (name learned once the Mac agent was rebuilt with the host block -- the older binary left the URL placeholder, as designed); host menu switches both ways; a Mac attention push arriving while home-server was selected fell through to the Mac session (`push did not decrypt on host … RELAY: DecryptFailedException`, then shown with its real title); tapping a home-server notification while the Mac was selected switched to home-server; Forget on the Mac's last slot removed the host and a re-pair brought it back. Not exercised: the Samsung (holds the only real legacy data -- do it after this branch merges), DIRECT on a second host.
 
 Wire deferrals decided while implementing phase 2: host identity and
 capabilities ride on `GET /sessions` (`host` object beside `workspaces`),

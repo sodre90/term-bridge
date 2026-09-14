@@ -106,37 +106,51 @@ the agent:
 
 ## Phase 3 — app: multi-host (cmux-app-pxu.3)
 
-`app: multi-host — HostId keying, host switcher, pair another host`
+Built on `linux-host-phase3` as three commits (storage → push → UI), with
+the design section of the spec rewritten to match. Differences from the
+first draft below are noted inline.
 
-- `data/HostId.kt`: value class over the agent public-key fingerprint
-  (same derivation as the SAS fingerprint's input, reuse that code).
-- `Settings`: every `key(slot, KEY_*)` becomes `key(hostId, slot, KEY_*)`;
-  `migrateLegacyIfNeeded` gains step 2: existing slot-keyed data → the
-  `HostId` derived **offline** from `CryptoSession`'s persisted
-  `KEY_PEER_PUBLIC_KEY` (the agent pubkey is stored per slot at pairing, so
-  no network fetch and no `LEGACY` placeholder is needed; a slot with no
-  session record has nothing worth migrating). Same for `SlotCredentials`,
-  `CryptoSession` stores, the YOLO badge cache, `WorkspaceOrderStore`,
-  `TerminalDisplayStore`.
-- `AppContainer`: a `HostRegistry` (list of paired hosts + selected host,
-  persisted) and per-host `BridgeGateway`/`FallbackBridgeClient`/
-  `SocketReconnector` instances created lazily; the selected host's
-  gateway is what the view models see today, so screens change minimally.
-- UI: sessions list top bar shows the host name with a dropdown when >1
-  host; Inbox and terminal scoped to the selected host; Connections screen
-  lists hosts, "Pair another host" reuses `PairingViewModel` unchanged and
-  stores under the new `HostId`; per-host `HostCapabilities` gate the
-  placement sheet's "tab" option and feed kinds.
-- Push: FCM registration per host; notification payload already carries
-  the tenant — map tenant → host on tap and select it before navigating.
-- Tests: `Settings` migration (slot-keyed → fingerprint-keyed, offline), registry
-  selection persistence, placement sheet hides "tab" when
-  `capabilities.tabs=false`, `ViewModelConstructionTest` still constructs
-  everything (watch cmux-app-2jj's flake).
-- Live: pair the Samsung to the Mac twice (relay + direct) as before —
-  everything works as today — then pair the emulator to the Mac and to a
-  second `cmux-bridge agent` instance on the Mac pointing at the same cmux
-  (two hosts, same content) to exercise switching without needing Linux.
+- `data/HostId.kt`: value class over the first 16 bytes of
+  SHA-256(agent public key), hex; `PairedHost(id, name, kind)`.
+- Storage: `Settings` and `CryptoSession` key everything
+  `<host>_<slot>_<field>`; `HostKeyedMigration` runs **over the raw
+  encrypted prefs before either is constructed** (they read their records
+  in their constructors), folding the original single pairing into a slot
+  first and then each slot under the `HostId` derived offline from its
+  persisted peer key. A slot with no e2e record is dropped, not guessed.
+  `WorkspaceOrderStore` is per host (`adoptLegacyOrder`); font zoom,
+  wheel scrolling and poll intervals stay global -- they are device
+  preferences, not host state.
+- `HostRegistry` (hosts + selected, persisted through `Settings`);
+  `AppContainer` keeps one `HostConnections` per host, lazily, and its
+  gateway methods delegate to the selected one. `CmuxNavHost` re-keys the
+  whole nav graph on the selection so no ViewModel outlives a switch.
+- Host name and kind are **learned from `GET /sessions`'s `host` block**
+  (`FallbackBridgeClient.onHostInfo` → `HostRegistry.describe`), not from
+  a pairing field: no pairing wire change, and an agent older than the
+  host block leaves the relay-URL placeholder in place.
+- `PairingClient.commit` derives the `HostId` from the QR's agent key and
+  binds that host's `CryptoSession`/`Settings` before storing -- including
+  `superseded`, so a re-pair only retires the credential on that host.
+- UI: sessions title is the host name with a dropdown (kind badge, "Pair
+  another host…"); Connections shows one card per host plus "Pair another
+  host"; Forget on a host's last slot removes the host. Capability gating:
+  `feed=false` hides Inbox and YOLO and skips `/feed/pending`;
+  `tabs=false` hides "New tab" (landed in phase 4). All "Mac" copy is
+  host-neutral or takes the host name (`LocalHostName`).
+- Push: the FCM token is registered with **every** paired host (pending
+  until all accept); a payload carries the slot but not the host, so
+  decryption tries every host, selected first (AEAD rejects the wrong
+  one), and the deep link carries the host to select.
+- Tests: `HostKeyedMigrationTest`, `HostRegistryTest`,
+  `FcmConfigOwnershipTest` (cross-host owner), `FcmTokenRegistrarTest`
+  (all-accept), `SessionsViewModelTest` (no feed poll on a feed-less
+  host).
+- Live (emulator, 2026-09-14): in-place upgrade migrated the Linux
+  pairing; the Mac paired as a second host; switching, gating, per-host
+  copy, cross-host push fall-through and deep-link host selection all
+  verified. The Samsung upgrade is still pending -- it is the only device
+  with real legacy data, so it goes last.
 
 ## Phase 4 — bridge: `tmuxhost` (cmux-app-pxu.4)
 
