@@ -22,6 +22,12 @@ import (
 // backend failure.
 var ErrUnsupported = errors.New("unsupported by this host")
 
+// ErrPromptGone is FeedReply refusing to answer a prompt that is no longer
+// (or not yet) on screen -- someone else answered it, or the reply named a
+// prompt this host is not holding. The server answers it as a conflict so
+// the phone drops the stale item instead of retrying.
+var ErrPromptGone = errors.New("prompt is no longer on screen")
+
 // ErrMalformed wraps a backend reply that arrived but could not be read,
 // as distinct from the backend being unreachable.
 var ErrMalformed = errors.New("malformed backend response")
