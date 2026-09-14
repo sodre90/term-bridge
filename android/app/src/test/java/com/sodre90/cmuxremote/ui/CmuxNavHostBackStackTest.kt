@@ -1,5 +1,6 @@
 package com.sodre90.cmuxremote.ui
 
+import android.app.Application
 import android.os.Build
 import androidx.navigation.NavController
 import androidx.navigation.compose.ComposeNavigator
@@ -26,8 +27,13 @@ import org.robolectric.annotation.Config
  * composing CmuxNavHost, which would pull in every screen's ViewModel and its
  * networking.
  */
+// A plain Application: the real CmuxApp's onCreate warms up its AppContainer on
+// Dispatchers.IO, which under Robolectric dies of "AndroidKeyStore not found"
+// in the background -- and kotlinx-coroutines-test hands that uncaught
+// exception to whichever runTest starts next, failing an unrelated Compose
+// test (seen 2026-09-14 on TapWithinSlopTest).
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [Build.VERSION_CODES.UPSIDE_DOWN_CAKE])
+@Config(sdk = [Build.VERSION_CODES.UPSIDE_DOWN_CAKE], application = Application::class)
 class CmuxNavHostBackStackTest {
 
     private fun controller(startDestination: String): TestNavHostController {
