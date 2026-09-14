@@ -104,7 +104,7 @@ func parseWindowState(line string) windowState {
 
 // zoomPane gives target the whole window. resize-pane -Z toggles the
 // window's zoom whichever pane it names, so a zoom held by a sibling is
-// dropped before target's own is applied (verified on tmux 3.5a).
+// dropped before target's own is applied (verified on tmux 3.7c).
 func (h *Host) zoomPane(ctx context.Context, w windowState, target string) error {
 	if w.zoomed {
 		if _, err := h.tmux.Run(ctx, "resize-pane", "-Z", "-t", w.id); err != nil {

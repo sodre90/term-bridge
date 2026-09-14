@@ -194,8 +194,10 @@ is sized to the phone; when the last viewer leaves, the bridge runs
 option and an SSH-attached human gets their own size back. A pane of a
 split window would otherwise get only its share of the phone's columns, so
 the bridge zooms it (`resize-pane -Z`, which toggles the window's zoom
-whichever pane it names — a sibling's zoom is dropped first) for as long as
-the phone views it and unzooms on release if the window is still zoomed
+whichever pane it names — a sibling's zoom is dropped first, and zooming
+makes the pane active, so a keyboard user's keys land in the viewed pane
+meanwhile) for as long as the phone views it and unzooms on release if the
+window is still zoomed
 (built: phase 6 follow-up, pxu.8). Headless makes
 the "phone reflows the desktop user" concern mostly moot;
 `Capabilities.ViewportPerClient=false` lets the app know two phones on one

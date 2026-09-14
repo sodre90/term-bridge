@@ -227,8 +227,10 @@ What differs from cmux, by design: a pane is its own only surface, so there
 is no "add as tab" (the app hides it from the host's advertised
 capabilities); a window a phone is viewing is sized to the phone
 (`resize-window`), a viewed pane in a split window is zoomed (`resize-pane
--Z`) so it gets the whole viewport rather than a share of it, and both are
-handed back to attached clients a few seconds after the phone leaves; and
+-Z`) so it gets the whole viewport rather than a share of it -- zooming
+also makes it the window's active pane, so an SSH-attached human's keys
+land there while a phone views it -- and both are handed back to attached
+clients a few seconds after the phone leaves; and
 the Inbox, YOLO mode, attention stripes and pushes cover
 Claude Code panes only, through its hooks, since tmux itself has no notion
 of an agent prompt (the design: `docs/superpowers/specs/2026-09-14-linux-tmux-host-design.md`).
