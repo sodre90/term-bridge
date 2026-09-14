@@ -35,7 +35,7 @@ func applySGR(s style, params string) style {
 			s.italic = true
 		case n == 4, n == 21:
 			// 4:0 is "underline off" in the sub-parameter form.
-			s.underline = !(p[i].sub && p[i].subValue == 0)
+			s.underline = !p[i].sub || p[i].subValue != 0
 		case n == 7:
 			s.inverse = true
 		case n == 9:
