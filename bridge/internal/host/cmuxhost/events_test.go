@@ -1,8 +1,19 @@
 package cmuxhost
 
 import (
+	"context"
 	"encoding/json"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
+
+	"github.com/sodre90/term-bridge/internal/cmux"
+	"github.com/sodre90/term-bridge/internal/testutil"
+	"github.com/sodre90/term-bridge/internal/wire"
 )
 
 func TestNeedsAttention(t *testing.T) {
@@ -102,5 +113,63 @@ func TestClassifyNotificationNoAttention(t *testing.T) {
 	}
 	if f.SurfaceID != "S1" || f.WorkspaceID != "W1" {
 		t.Fatalf("ids wrong: %+v", f)
+	}
+}
+
+// A `cmux events` child that acks the subscription and then never writes
+// again -- the shape of the 41h outage: alive, socketless, silent. Each
+// start is counted in a file so the test can see the restart.
+const silentEventsCmux = `#!/bin/sh
+echo start >> "$CMUX_FAKE_LOG"
+echo '{"type":"ack","protocol":"cmux-events","heartbeat_interval_seconds":15}'
+sleep 60
+`
+
+func TestRunEventsRestartsASilentStream(t *testing.T) {
+	logPath := filepath.Join(t.TempDir(), "starts.log")
+	t.Setenv("CMUX_FAKE_LOG", logPath)
+	h := New(&cmux.Client{Bin: testutil.WriteFakeCmux(t, silentEventsCmux)})
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	// Generous limit: under a loaded full test run the child can take a
+	// good fraction of a second just to reach its first line.
+	go h.runEvents(ctx, func(wire.EventFrame) {}, time.Second)
+
+	deadline := time.Now().Add(12 * time.Second)
+	for time.Now().Before(deadline) {
+		b, _ := os.ReadFile(logPath)
+		if strings.Count(string(b), "start") >= 2 {
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	b, _ := os.ReadFile(logPath)
+	t.Fatalf("silent events child was never restarted; starts:\n%s", b)
+}
+
+func TestKillWhenSilentLeavesAFlowingStreamAlone(t *testing.T) {
+	pr, pw := io.Pipe()
+	stream := &lastReadReader{r: pr}
+	stream.touch()
+	var killed atomic.Bool
+	stop := killWhenSilent(context.Background(), stream, 200*time.Millisecond, func() { killed.Store(true) })
+	defer stop()
+
+	go func() {
+		defer pw.Close()
+		for i := 0; i < 8; i++ {
+			_, _ = pw.Write([]byte("x\n"))
+			time.Sleep(50 * time.Millisecond)
+		}
+	}()
+	buf := make([]byte, 16)
+	for {
+		if _, err := stream.Read(buf); err != nil {
+			break
+		}
+	}
+	if killed.Load() {
+		t.Fatal("a stream that keeps writing must not be killed")
 	}
 }

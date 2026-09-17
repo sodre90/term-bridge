@@ -4,18 +4,34 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
+	"os"
 	"path/filepath"
+	"sync/atomic"
 	"time"
 
 	"github.com/sodre90/term-bridge/internal/backoff"
 	"github.com/sodre90/term-bridge/internal/wire"
 )
 
+// eventsSilenceLimit is how long the events subprocess may go without
+// writing a line before it is killed and restarted. cmux heartbeats every
+// subscription every 15s, so a stream this quiet is dead however alive the
+// process looks: on 2026-09-17 a `cmux events --reconnect` child was found
+// 41h silent, holding no socket to cmux, and nothing had restarted it -- no
+// push reached any phone for those 41h.
+const eventsSilenceLimit = 90 * time.Second
+
 // RunEvents keeps a `cmux events --reconnect` stream flowing into sink until
-// ctx ends, restarting the subprocess with backoff whenever it dies.
+// ctx ends, restarting the subprocess with backoff whenever it dies or falls
+// silent for eventsSilenceLimit.
 func (h *Host) RunEvents(ctx context.Context, sink func(wire.EventFrame)) {
+	h.runEvents(ctx, sink, eventsSilenceLimit)
+}
+
+func (h *Host) runEvents(ctx context.Context, sink func(wire.EventFrame), silenceLimit time.Duration) {
 	retry := backoff.New(time.Second, 30*time.Second)
 	for ctx.Err() == nil {
 		cmd, pipe, err := h.client.Events(ctx,
@@ -24,12 +40,68 @@ func (h *Host) RunEvents(ctx context.Context, sink func(wire.EventFrame)) {
 			backoff.Sleep(ctx, retry.Next())
 			continue
 		}
-		Ingest(ctx, pipe, sink)
+		stream := &lastReadReader{r: pipe}
+		stream.touch()
+		stopWatchdog := killWhenSilent(ctx, stream, silenceLimit, func() {
+			slog.Warn("cmuxhost: events stream silent, restarting it", "silence_limit", silenceLimit)
+			_ = cmd.Process.Kill()
+			// Ingest is blocked in Read; killing the child alone does not
+			// end that if anything it spawned still holds the pipe open.
+			_ = pipe.Close()
+		})
+		Ingest(ctx, stream, sink)
+		stopWatchdog()
 		_ = cmd.Wait()
 		if ctx.Err() == nil {
 			backoff.Sleep(ctx, retry.Next())
 		}
 	}
+}
+
+// lastReadReader records when r last yielded bytes, so a watchdog can tell a
+// stream that is quiet from one that is merely between lines.
+type lastReadReader struct {
+	r        io.Reader
+	lastRead atomic.Int64
+}
+
+func (l *lastReadReader) Read(p []byte) (int, error) {
+	n, err := l.r.Read(p)
+	if n > 0 {
+		l.touch()
+	}
+	return n, err
+}
+
+func (l *lastReadReader) touch() { l.lastRead.Store(time.Now().UnixNano()) }
+
+func (l *lastReadReader) silentFor() time.Duration {
+	return time.Since(time.Unix(0, l.lastRead.Load()))
+}
+
+// killWhenSilent calls kill once stream has yielded nothing for limit. The
+// returned func stops the watchdog; call it as soon as the stream ends so a
+// stream that ended on its own is never "killed" a second time.
+func killWhenSilent(ctx context.Context, stream *lastReadReader, limit time.Duration, kill func()) (stop func()) {
+	done := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(limit / 4)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-done:
+				return
+			case <-ticker.C:
+				if stream.silentFor() > limit {
+					kill()
+					return
+				}
+			}
+		}
+	}()
+	return func() { close(done) }
 }
 
 // Ingest reads NDJSON cmux event frames from r, classifies each, and hands
@@ -50,8 +122,9 @@ func Ingest(ctx context.Context, r io.Reader, sink func(wire.EventFrame)) {
 			sink(f)
 		}
 	}
-	if err := sc.Err(); err != nil {
-		// Most commonly bufio.ErrTooLong: a single event line exceeded the
+	if err := sc.Err(); err != nil && !errors.Is(err, os.ErrClosed) {
+		// os.ErrClosed is the silence watchdog closing the pipe on purpose.
+		// Otherwise most commonly bufio.ErrTooLong: a single event line exceeded the
 		// scanner's 4MB cap. That kills the whole stream (Scan stops, not just
 		// the one line), so RunEvents' restart-with-backoff is what actually
 		// recovers -- this log exists so that isn't silent.
