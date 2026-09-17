@@ -262,9 +262,13 @@ object TerminalDownType {
 
 /**
  * A terminal message sent up from the client: [TerminalUpType.INPUT],
- * [TerminalUpType.RESIZE] or [TerminalUpType.ATTACH]. [seq] is a
- * client-assigned monotonic id (starting at 1; 0 means unset) echoed back in
- * the matching [TerminalDownType.ACK] [TerminalDown].
+ * [TerminalUpType.PASTE], [TerminalUpType.RESIZE] or [TerminalUpType.ATTACH].
+ * [seq] is a client-assigned monotonic id (starting at 1; 0 means unset)
+ * echoed back in the matching [TerminalDownType.ACK] [TerminalDown].
+ *
+ * A paste carries [text] the host delivers as one paste rather than as
+ * typing -- bracketed (ESC[200~ ... ESC[201~) exactly when the pane has asked
+ * for that, which only the host owning the PTY can know reliably.
  *
  * An attach carries [image], the file's bytes in base64, which the bridge
  * writes to disk and pastes the path of into the pane. [name] is only a hint
@@ -284,6 +288,7 @@ data class TerminalUp(
 /** [TerminalUp.type]'s possible values -- what this client ever sends. */
 object TerminalUpType {
     const val INPUT = "input"
+    const val PASTE = "paste"
     const val RESIZE = "resize"
     const val ATTACH = "attach"
 }

@@ -108,6 +108,37 @@ class DeliveryTrackerTest {
     }
 
     @Test
+    fun aPasteIsItsOwnMessageAndNeverMergesWithTypedInput() {
+        val tracker = newTracker()
+        tracker.paste("one\ntwo")
+        tracker.sendText("x") // waits on the paste's ack like any input
+
+        assertEquals(listOf("paste"), sent.map { it.type })
+        assertEquals("one\ntwo", sent.single().text)
+
+        tracker.onAck(seq = 1L, ok = true)
+        assertEquals(listOf("paste" to "one\ntwo", "input" to "x"), sent.map { it.type to it.text })
+    }
+
+    @Test
+    fun textTypedBeforeAPasteReachesThePaneFirstEvenWhileGated() {
+        val tracker = newTracker()
+        tracker.sendText("a")
+        tracker.sendText("b") // gated behind "a"'s in-flight ack
+        tracker.paste("one\ntwo")
+
+        assertEquals(listOf("a", "b", "one\ntwo"), sent.map { it.text })
+        assertEquals(listOf("input", "input", "paste"), sent.map { it.type })
+    }
+
+    @Test
+    fun anEmptyPasteSendsNothing() {
+        val tracker = newTracker()
+        tracker.paste("")
+        assertEquals(0, sent.size)
+    }
+
+    @Test
     fun resizeBypassesTheInputGate() {
         val tracker = newTracker()
         tracker.sendText("a")

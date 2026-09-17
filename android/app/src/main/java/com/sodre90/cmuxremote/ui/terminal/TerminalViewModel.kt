@@ -391,6 +391,8 @@ class TerminalViewModel(
 
     fun sendText(text: String) = tracker.sendText(text)
 
+    fun paste(text: String) = tracker.paste(text)
+
     /** The user picked an image: decode a preview and hold it for confirmation. */
     fun stageAttachment(uri: Uri) {
         val attacher = images ?: return

@@ -130,9 +130,24 @@ class DeliveryTracker(
 
     private fun flushPendingOutboundIfIdle() {
         if (inFlightInputSeq != null || pendingOutbound.isEmpty()) return
+        flushPendingOutbound()
+    }
+
+    private fun flushPendingOutbound() {
         val text = pendingOutbound.toString()
         pendingOutbound.clear()
         inFlightInputSeq = dispatch(TerminalUp(type = TerminalUpType.INPUT, text = text))
+    }
+
+    /** Sends [text] as one paste message, never merged into typed input:
+     *  the host delivers a paste differently from keystrokes. Anything typed
+     *  before it is flushed first, in-flight gate or not, so the pane sees
+     *  the two in the order the user produced them; typing after it waits
+     *  on the paste's ack like any other in-flight input. */
+    fun paste(text: String) {
+        if (text.isEmpty()) return
+        if (pendingOutbound.isNotEmpty()) flushPendingOutbound()
+        inFlightInputSeq = dispatch(TerminalUp(type = TerminalUpType.PASTE, text = text))
     }
 
     fun resize(columns: Int, rows: Int) {

@@ -155,9 +155,6 @@ data class DecodedGrid(
     // DEC private mode 1006: mouse reports are encoded in SGR form. Decides
     // whether a wheel notch can be spelled at all -- see [scrollsByWheel].
     val sgrMouseEncoding: Boolean = false,
-    // DEC private mode 2004. Decides whether a paste is wrapped in
-    // ESC[200~ ... ESC[201~ -- see [bracketedPasteEnabled].
-    val bracketedPaste: Boolean = false,
 ) {
     /**
      * True when a vertical swipe the local render buffer could not absorb is
@@ -246,25 +243,6 @@ internal fun sgrMouseEncodingEnabled(modes: List<JsonElement>): Boolean =
     }
 
 /**
- * True when DEC private mode 2004 (bracketed paste) is set: pasted text must
- * then be wrapped in `ESC[200~ ... ESC[201~` so the receiving application takes
- * the whole block as one paste instead of as typing. Without it a multi-line
- * paste reaches a shell or an agent prompt as text plus newlines, and each line
- * runs as it lands (cmux-app-ybb).
- *
- * Conditioned on the mode rather than sent unconditionally: a pane with
- * bracketed paste OFF would receive the literal `ESC[200~` as input.
- */
-internal fun bracketedPasteEnabled(modes: List<JsonElement>): Boolean =
-    modes.any { element ->
-        val obj = element as? JsonObject ?: return@any false
-        val ansi = (obj["ansi"] as? JsonPrimitive)?.booleanOrNull ?: false
-        val code = (obj["code"] as? JsonPrimitive)?.intOrNull
-        val on = (obj["on"] as? JsonPrimitive)?.booleanOrNull ?: false
-        !ansi && code == 2004 && on
-    }
-
-/**
  * The `active_screen` value cmux reports for a pane that has swapped to the
  * alternate screen buffer; the primary buffer reports "primary".
  */
@@ -297,7 +275,6 @@ object RenderGridDecoder {
             mouseReporting = mouseReportingEnabled(grid.modes),
             alternateScreen = grid.activeScreen == ALTERNATE_SCREEN,
             sgrMouseEncoding = sgrMouseEncodingEnabled(grid.modes),
-            bracketedPaste = bracketedPasteEnabled(grid.modes),
         )
     }
 

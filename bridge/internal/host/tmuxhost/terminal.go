@@ -31,8 +31,9 @@ func (h *Host) Input(ctx context.Context, surfaceID, text string) error {
 
 // Paste delivers text through a tmux buffer, so its size is not an
 // argument list and paste-buffer -p wraps it in bracketed-paste markers
-// exactly when the pane has asked for them (mode 2004), which is the rule
-// the app applies on the cmux path too.
+// exactly when the pane has asked for them (mode 2004). The app never
+// brackets on its own: only the host owning the PTY knows the mode for
+// sure, and cmux cannot even deliver an app-side ESC[200~ intact.
 func (h *Host) Paste(ctx context.Context, surfaceID, text string) error {
 	target, err := h.resolve(ctx, surfaceID, paneID)
 	if err != nil {
