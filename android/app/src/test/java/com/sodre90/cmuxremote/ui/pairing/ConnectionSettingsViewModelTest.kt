@@ -47,9 +47,6 @@ private class FakeTestPushBridgeGateway(private val bridge: FallbackBridgeClient
  *  stub is enough. */
 private class FakeTerminalDisplayGateway : TerminalDisplayGateway {
     override fun loadFontZoom(): Float = 1f
-    var wheelScrolling = true
-    override fun loadWheelScrolling(): Boolean = wheelScrolling
-    override fun saveWheelScrolling(enabled: Boolean) { wheelScrolling = enabled }
     val pollMs = mutableMapOf(false to DEFAULT_POLL_MS_UNMETERED, true to DEFAULT_POLL_MS_METERED)
     override fun loadTerminalPollMs(metered: Boolean): Int = pollMs.getValue(metered)
     override fun saveTerminalPollMs(metered: Boolean, ms: Int) { pollMs[metered] = ms }

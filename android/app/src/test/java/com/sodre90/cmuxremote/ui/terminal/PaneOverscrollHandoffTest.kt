@@ -71,7 +71,6 @@ class PaneOverscrollHandoffTest {
         val viewportPx = with(LocalDensity.current) { viewportDp.toPx() }
         val pager = rememberPaneOverscrollPager(
             grid = altScreenGrid,
-            wheelScrolls = false,
             viewportHeightPx = viewportPx,
             onSend = { sent += it },
         )

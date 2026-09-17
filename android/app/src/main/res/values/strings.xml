@@ -146,9 +146,6 @@
 
     <!-- Terminal font size (Connections/Settings screen) -->
     <string name="terminal_font_size_title">Terminal font size</string>
-    <string name="terminal_wheel_scrolling_title">Smooth scrolling in full-screen panes</string>
-    <string name="terminal_wheel_scrolling_on_help">Swipes scroll a fraction of a line at a time, so the pane follows your finger. Each notch is a round trip to the host, so on a slow link it can lag behind.</string>
-    <string name="terminal_wheel_scrolling_off_help">Swipes send Page Up / Page Down instead. One keystroke jumps half a screen: much faster over a slow link, but it moves in steps rather than smoothly.</string>
     <string name="terminal_poll_title">Check for new output every</string>
     <string name="terminal_poll_millis">%1$d ms</string>
     <string name="terminal_poll_seconds">%1$d s</string>

@@ -80,10 +80,6 @@ class ConnectionSettingsViewModel(
 
     fun loadFontZoom(): Float = terminalDisplay.loadFontZoom()
 
-    fun loadWheelScrolling(): Boolean = terminalDisplay.loadWheelScrolling()
-
-    fun saveWheelScrolling(enabled: Boolean) = terminalDisplay.saveWheelScrolling(enabled)
-
     fun loadTerminalPollMs(metered: Boolean): Int = terminalDisplay.loadTerminalPollMs(metered)
 
     fun saveTerminalPollMs(metered: Boolean, ms: Int) = terminalDisplay.saveTerminalPollMs(metered, ms)

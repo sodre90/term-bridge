@@ -21,7 +21,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -79,7 +78,6 @@ fun ConnectionSettingsScreen(
     hosts: List<HostConnectionsUi>,
     testPushState: TestPushUiState,
     fontZoom: Float,
-    wheelScrolling: Boolean,
     wifiPollMs: Int,
     mobilePollMs: Int,
     appVersion: String,
@@ -88,7 +86,6 @@ fun ConnectionSettingsScreen(
     onForget: (HostId, ConnectionSlot) -> Unit,
     onSendTestPush: () -> Unit,
     onFontZoomChange: (Float) -> Unit,
-    onWheelScrollingChange: (Boolean) -> Unit,
     onWifiPollMsChange: (Int) -> Unit,
     onMobilePollMsChange: (Int) -> Unit,
     onDone: () -> Unit,
@@ -149,7 +146,6 @@ fun ConnectionSettingsScreen(
                 PairAnotherHostRow(onPair = { onPair(ConnectionSlot.RELAY) })
             }
             FontSizeRow(zoom = fontZoom, onZoomChange = onFontZoomChange)
-            WheelScrollingRow(enabled = wheelScrolling, onEnabledChange = onWheelScrollingChange)
             TerminalPollRow(
                 wifiPollMs = wifiPollMs,
                 mobilePollMs = mobilePollMs,
@@ -375,42 +371,6 @@ private fun FontSizeRow(zoom: Float, onZoomChange: (Float) -> Unit) {
             TextButton(onClick = { onZoomChange(MIN_ZOOM) }, enabled = zoom > MIN_ZOOM) {
                 Text(stringResource(R.string.terminal_font_size_reset))
             }
-        }
-    }
-}
-
-/**
- * Picks how panes that report mouse tracking are scrolled. Both answers are
- * defensible and the better one depends on the link, so it is a choice rather
- * than a constant -- see
- * [TerminalDisplayGateway.loadWheelScrolling][com.sodre90.cmuxremote.data.TerminalDisplayGateway.loadWheelScrolling].
- * Panes that do not report mouse tracking are unaffected either way.
- */
-@Composable
-private fun WheelScrollingRow(enabled: Boolean, onEnabledChange: (Boolean) -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Text(
-                    stringResource(R.string.terminal_wheel_scrolling_title),
-                    modifier = Modifier.weight(1f),
-                )
-                Switch(checked = enabled, onCheckedChange = onEnabledChange)
-            }
-            Text(
-                stringResource(
-                    if (enabled) {
-                        R.string.terminal_wheel_scrolling_on_help
-                    } else {
-                        R.string.terminal_wheel_scrolling_off_help
-                    },
-                ),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
 }

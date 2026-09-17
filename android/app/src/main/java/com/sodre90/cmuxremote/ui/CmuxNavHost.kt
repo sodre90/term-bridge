@@ -212,7 +212,6 @@ private fun HostNavHost(
             )
             val testPushState by testPushVm.testPushState.collectAsState()
             var fontZoom by rememberSaveable { mutableFloatStateOf(testPushVm.loadFontZoom()) }
-            var wheelScrolling by rememberSaveable { mutableStateOf(testPushVm.loadWheelScrolling()) }
             var wifiPollMs by rememberSaveable { mutableIntStateOf(testPushVm.loadTerminalPollMs(metered = false)) }
             var mobilePollMs by rememberSaveable { mutableIntStateOf(testPushVm.loadTerminalPollMs(metered = true)) }
             val bridgeVersion by testPushVm.bridgeVersion.collectAsState()
@@ -221,7 +220,6 @@ private fun HostNavHost(
                 hosts = hostCards,
                 testPushState = testPushState,
                 fontZoom = fontZoom,
-                wheelScrolling = wheelScrolling,
                 wifiPollMs = wifiPollMs,
                 mobilePollMs = mobilePollMs,
                 appVersion = BuildConfig.VERSION_NAME,
@@ -235,10 +233,6 @@ private fun HostNavHost(
                 onFontZoomChange = {
                     fontZoom = it
                     testPushVm.saveFontZoom(it)
-                },
-                onWheelScrollingChange = {
-                    wheelScrolling = it
-                    testPushVm.saveWheelScrolling(it)
                 },
                 onWifiPollMsChange = {
                     wifiPollMs = it

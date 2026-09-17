@@ -185,7 +185,7 @@ class RenderGridDecoderTest {
 
     @Test
     fun sgrEncodingAloneIsNotMouseReporting() {
-        // 1006 only changes the wheel-sequence ENCODING; a tracking mode must be on too.
+        // 1006 only changes the mouse-report ENCODING; a tracking mode must be on too.
         assertFalse(decodeWithModes("""[{"ansi":false,"code":1006,"on":true}]""").mouseReporting)
     }
 
@@ -234,43 +234,5 @@ class RenderGridDecoderTest {
         // leaves local scrolling exactly as it was.
         assertFalse(RenderGridDecoder.decode(grid()).alternateScreen)
         assertFalse(RenderGridDecoder.decode(grid()).mayPageOnOverscroll)
-    }
-
-    // -- who can take a wheel notch (see DecodedGrid.scrollsByWheel) --
-
-    private val trackingOn = """{"ansi":false,"code":1000,"on":true}"""
-    private val sgrOn = """{"ansi":false,"code":1006,"on":true}"""
-
-    @Test
-    fun trackingPlusSgrEncodingScrollsByWheel() {
-        assertTrue(decodeWithModes("[$trackingOn,$sgrOn]").scrollsByWheel)
-    }
-
-    @Test
-    fun trackingWithoutSgrEncodingCannotTakeANotch() {
-        // X10-encoded reports are not spelled here, so a notch could not be
-        // written even though the pane wants one.
-        assertFalse(decodeWithModes("[$trackingOn]").scrollsByWheel)
-    }
-
-    @Test
-    fun sgrEncodingWithoutTrackingNeverScrollsByWheel() {
-        // The dangerous case: nothing is listening for a notch, so the bytes
-        // would land in the session as literal text (d3da2ba).
-        assertFalse(decodeWithModes("[$sgrOn]").scrollsByWheel)
-    }
-
-    @Test
-    fun anAlternateScreenPaneWithoutMouseModesTakesOnlyPageKeys() {
-        // `less` and `vim` without mouse support: overscroll may page the
-        // pane, but PgUp/PgDn is all it understands.
-        val decoded = decodeWithScreen("alternate")
-        assertTrue(decoded.mayPageOnOverscroll)
-        assertFalse(decoded.scrollsByWheel)
-    }
-
-    @Test
-    fun aPaneScrollingByWheelMayAlsoBePagedByOverscroll() {
-        assertTrue(decodeWithModes("[$trackingOn,$sgrOn]").mayPageOnOverscroll)
     }
 }

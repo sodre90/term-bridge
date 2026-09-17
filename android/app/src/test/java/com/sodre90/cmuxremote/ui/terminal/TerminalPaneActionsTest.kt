@@ -60,8 +60,6 @@ class TerminalPaneActionsTest {
     private object NoDisplayPrefs : TerminalDisplayGateway {
         override fun loadFontZoom(): Float = 1f
         override fun saveFontZoom(zoom: Float) = Unit
-        override fun loadWheelScrolling(): Boolean = true
-        override fun saveWheelScrolling(enabled: Boolean) = Unit
         override fun loadTerminalPollMs(metered: Boolean): Int = DEFAULT_TERMINAL_POLL_MS
         override fun saveTerminalPollMs(metered: Boolean, ms: Int) = Unit
     }

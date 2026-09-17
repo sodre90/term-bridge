@@ -140,10 +140,6 @@ class TerminalViewModel(
     fun loadFontZoom(): Float = terminalDisplay.loadFontZoom()
     fun saveFontZoom(zoom: Float) = terminalDisplay.saveFontZoom(zoom)
 
-    fun loadWheelScrolling(): Boolean = terminalDisplay.loadWheelScrolling()
-
-    fun saveWheelScrolling(enabled: Boolean) = terminalDisplay.saveWheelScrolling(enabled)
-
     private val _state = MutableStateFlow<UiState<TerminalContent>>(UiState.Loading)
     val state: StateFlow<UiState<TerminalContent>> = _state.asStateFlow()
     private var job: Job? = null

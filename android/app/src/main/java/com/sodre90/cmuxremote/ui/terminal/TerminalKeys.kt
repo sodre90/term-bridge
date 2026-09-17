@@ -123,35 +123,3 @@ internal fun ctrlSequence(letter: Char): String? {
  * decides whether this runs at all.
  */
 internal fun applyCtrlArm(text: String): String = text.singleOrNull()?.let { ctrlSequence(it) } ?: text
-
-/**
- * SGR mouse-report button codes (DEC private mode 1006). Wheel notches are
- * buttons 64/65; 35 is motion with no button held, which any-event tracking
- * (mode 1003) delivers continuously as a pointer crosses the pane.
- */
-private const val MOUSE_WHEEL_UP = 64
-private const val MOUSE_WHEEL_DOWN = 65
-private const val MOUSE_MOTION = 35
-
-/** One SGR mouse report at a 1-based cell. Always terminated `M` (press): the
- *  `m` release form applies to buttons, and a wheel notch has no release. */
-private fun sgrMouseReport(button: Int, column: Int, row: Int): String =
-    "$ESC[<$button;$column;${row}M"
-
-/**
- * One wheel notch, preceded by the pointer-position report that makes it count.
- *
- * The motion report is not optional padding. A notch sent cold is discarded --
- * measured on a live Claude pane, where a bare `ESC[<64;..M` was a byte-identical
- * no-op while the same notch sent after motion moved the pane. A real trackpad
- * never sends one cold either: the emulator has been streaming motion as the
- * pointer crossed the pane, so the application already knows where the cursor is
- * and which region the notch applies to. Pairing them also survives coalescing,
- * where several notches share one write (cmux-app-vcx).
- *
- * [up] is the direct-manipulation sense used everywhere else: dragging DOWN
- * pulls earlier output into view, which is a wheel-UP notch.
- */
-internal fun wheelNotch(up: Boolean, column: Int, row: Int): String =
-    sgrMouseReport(MOUSE_MOTION, column, row) +
-        sgrMouseReport(if (up) MOUSE_WHEEL_UP else MOUSE_WHEEL_DOWN, column, row)

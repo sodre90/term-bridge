@@ -149,11 +149,6 @@ class AppContainer(
 
     override fun saveFontZoom(zoom: Float) = terminalDisplayStore.saveFontZoom(zoom)
 
-    override fun loadWheelScrolling(): Boolean = terminalDisplayStore.loadWheelScrolling()
-
-    override fun saveWheelScrolling(enabled: Boolean) =
-        terminalDisplayStore.saveWheelScrolling(enabled)
-
     override fun loadTerminalPollMs(metered: Boolean): Int =
         terminalDisplayStore.loadTerminalPollMs(metered)
 

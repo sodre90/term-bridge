@@ -12,6 +12,15 @@ every section after it itemizes changes individually. Purely internal refactors
 
 ## [Unreleased]
 
+### Removed
+
+- **"Smooth scrolling in full-screen panes" setting.** With it on, a swipe
+  over a Claude Code pane on cmux landed as Escape keypresses: cmux's input
+  RPC splits an SGR mouse report at its ESC, so one notch interrupted the
+  agent and two opened the rewind overlay. No cmux RPC delivers a wheel
+  notch intact, so the option is gone rather than hidden; such panes page
+  with PgUp/PgDn as they did with the setting off (cmux-app-cw9).
+
 ## [0.9.0] - 2026-09-14
 
 The phone now reaches a headless Linux box running tmux, next to the Mac

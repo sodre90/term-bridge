@@ -131,24 +131,6 @@ import kotlin.math.abs
 
 private const val TAG = "TerminalSwipe"
 
-/** Finger travel that buys one wheel notch, on panes scrolled that way. A notch
- *  moves such a pane well under a row, so this is deliberately short. */
-private val WHEEL_NOTCH_TRAVEL = 10.dp
-
-/**
- * Smallest gap between wheel notches.
- *
- * Not a feel preference -- a transport limit. Each input RPC is a bridge
- * subprocess spawn (~150ms; see [DeliveryTracker]), and anything emitted while
- * one is in flight coalesces into the next write. Notches are worthless once
- * stale, so surplus is DROPPED rather than queued: without this a fast flick
- * builds a blob of dozens that lands as one write long after lift-off, and a
- * blob that size is collapsed by the pane into almost no movement at all
- * (measured: 0 to 34 rows for the same payload). Spacing them keeps each write
- * small enough to survive (cmux-app-vcx).
- */
-private const val WHEEL_NOTCH_INTERVAL_MS = 40L
-
 // Reference size for the surface-viewport resize math (decoupled from the display
 // zoom so pinching never re-resizes the surface).
 private const val BASE_FONT_SP = 13f
@@ -253,9 +235,6 @@ fun TerminalScreen(
     // size set here or on ConnectionSettingsScreen survives leaving and
     // reopening a terminal, or restarting the app.
     var userZoom by rememberSaveable { mutableFloatStateOf(vm.loadFontZoom()) }
-    // Read once per screen: the preference is edited on the settings screen, so
-    // it cannot change while a terminal is on top of it.
-    val wheelScrolls = remember { vm.loadWheelScrolling() }
     // Word-wrap: on → zooming in reflows long rows onto extra lines; off → it stays
     // one row per line with horizontal panning (keeps tables/TUI layouts aligned).
     var wrap by rememberSaveable { mutableStateOf(true) }
@@ -487,7 +466,6 @@ fun TerminalScreen(
 
                         val paneOverscrollPager = rememberPaneOverscrollPager(
                             grid = grid,
-                            wheelScrolls = wheelScrolls,
                             viewportHeightPx = hPx,
                             onSend = vm::sendText,
                         )
@@ -614,7 +592,7 @@ fun TerminalScreen(
 
 /**
  * Hands the pane whatever vertical drag the local render buffer could not
- * absorb, as page keys (or wheel notches; see [wheelScrolls]).
+ * absorb, as page keys.
  *
  * A handoff, NOT an interception. The grid's own verticalScroll gets first
  * refusal on every gesture and only its overscroll -- `available` in
@@ -631,54 +609,42 @@ fun TerminalScreen(
  * looks identical to one that hit its edge. Only the nested-scroll cycle
  * reports how much was actually used.
  *
- * The keys are PgUp/PgDn, NOT synthetic wheel events. Verified twice: opencode
- * prints SGR/X10 sequences as literal text (d3da2ba), and a Claude pane
- * advertising mouse tracking WITH SGR (1000+1002+1003+1006, on the alternate
- * screen) silently swallows `ESC[<64;col;rowM` -- the pane stopped scrolling
- * entirely until this was put back. Whatever makes that pane scroll under a
- * desktop trackpad, it is not a wheel report arriving on stdin (cmux-app-vcx).
+ * The keys are PgUp/PgDn, NOT synthetic wheel events, and not because of
+ * feel: cmux's input RPC only delivers an escape sequence intact when it
+ * recognises it as a key. A page key arrives as one write; an SGR mouse
+ * report does not, so its ESC lands on the pane as a bare Escape keypress
+ * followed by literal text -- in Claude Code one Escape interrupts the agent
+ * and two open the rewind overlay (cmux-app-cw9). opencode printed the same
+ * reports as literal text (d3da2ba). No cmux RPC found delivers a wheel
+ * notch, so smooth wheel scrolling was removed rather than gated
+ * (cmux-app-vcx has the history).
  */
 @Composable
 internal fun rememberPaneOverscrollPager(
     grid: DecodedGrid,
-    wheelScrolls: Boolean,
     viewportHeightPx: Float,
     onSend: (String) -> Unit,
 ): NestedScrollConnection {
-    // Two ways to move a pane, and the pane plus a preference decide which.
-    //
-    // Wheel notches move it a fraction of a row, so it tracks the finger. Their
-    // cost is round trips: a half-screen is roughly sixty notches against a
-    // ~150ms-per-RPC bridge, so this is smooth-but-slow, and throttled so a
-    // flick cannot build a blob the pane would collapse (WHEEL_NOTCH_INTERVAL_MS).
-    //
-    // PgUp/PgDn covers that distance in one keystroke, but its quantum is fixed
-    // at half a screen (35 of 79 rows on a live Claude pane). Soft-wrapped, 35
-    // rows are taller than the viewport, so 1:1 is unreachable and a step only
-    // decides how much overscroll buys one jump -- sized to one comfortable
-    // swipe. Half the viewport was longer than a thumb reaches, so no step ever
-    // fired (cmux-app-sgy).
-    val wheeling = wheelScrolls && grid.scrollsByWheel
-    val notchTravelPx = with(LocalDensity.current) { WHEEL_NOTCH_TRAVEL.toPx() }
-    val hoverColumn = grid.columns / 2 + 1
-    val hoverRow = grid.rows / 2 + 1
-    val pager = remember(grid.mayPageOnOverscroll, wheeling, viewportHeightPx, hoverColumn, hoverRow) {
+    // PgUp/PgDn covers half a screen in one keystroke (35 of 79 rows on a live
+    // Claude pane). Soft-wrapped, 35 rows are taller than the viewport, so 1:1
+    // is unreachable and a step only decides how much overscroll buys one jump
+    // -- sized to one comfortable swipe. Half the viewport was longer than a
+    // thumb reaches, so no step ever fired (cmux-app-sgy).
+    val pager = remember(grid.mayPageOnOverscroll, viewportHeightPx) {
         if (!grid.mayPageOnOverscroll) return@remember null
-        val stepPx = (if (wheeling) notchTravelPx else viewportHeightPx / 4f).coerceAtLeast(1f)
+        val stepPx = (viewportHeightPx / 4f).coerceAtLeast(1f)
         SwipePager(
             pageStepPx = stepPx,
             // Nothing moves until the first step fires, and it then costs two
             // `cmux rpc` subprocess spawns (~300ms) to become visible, so a
             // quarter-screen of overscroll before any feedback read as lag.
             // Half that to open with; the steadier spacing resumes after.
-            firstStepPx = (if (wheeling) stepPx else stepPx / 2f).coerceAtLeast(1f),
-            minStepIntervalMs = if (wheeling) WHEEL_NOTCH_INTERVAL_MS else 0L,
+            firstStepPx = (stepPx / 2f).coerceAtLeast(1f),
+            minStepIntervalMs = 0L,
             onStep = { up ->
-                if (BuildConfig.DEBUG) Log.d(TAG, "step up=$up wheel=$wheeling")
+                if (BuildConfig.DEBUG) Log.d(TAG, "step up=$up")
                 // Sent as text so the Ctrl chip's arming is not involved.
-                onSend(
-                    if (wheeling) wheelNotch(up, hoverColumn, hoverRow) else if (up) "$ESC[5~" else "$ESC[6~",
-                )
+                onSend(if (up) "$ESC[5~" else "$ESC[6~")
             },
         )
     }
